@@ -125,7 +125,8 @@ int main(Int_t argc, Char_t *argv[]){
    TH1F  * hQ   = nullptr;
 
    Bool_t investigateTiming = kFALSE;
-   
+   Bool_t investigateRiseFall = kFALSE;
+
    Float_t peakMeans[argc-1];
    for (Int_t i = 0 ; i < (argc-1) ; i++)
      peakMeans[i] = 0.;
@@ -214,7 +215,8 @@ int main(Int_t argc, Char_t *argv[]){
 
      //------------
      //Rise/Fall Time Study
-     PMT->RiseFallTime();
+     if(iFile < argc && investigateRiseFall)
+		 	PMT->RiseFallTime();
 
 
      //------------
