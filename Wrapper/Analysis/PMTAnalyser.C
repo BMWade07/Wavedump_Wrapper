@@ -1018,6 +1018,59 @@ void PMTAnalyser::SetStyle(){
 //Can not discriminate between signal and noise
 ///////////////////////////////////////////////
 
+
+//To fit the waveform with a Crystalball fit for integration, darkcounts, and Rise/Fall Time
+TF1 * Get_Pulse_Fit(long64_t entry){//TH1F Waveform){
+	
+	TH1F * hWave;
+	TString hName;
+	hName = "hName";
+	hWave = Get_hWave(entry);
+	//Will need changing for specific parameters ie: Event windows, etc.
+	//May need adjustment for background fitting to reduce effects on results
+	
+	//Fit the line and get roughly in the ball park
+		
+	TF1* SignalPulse = new TF1("SignalPulse", "[0]-crystalball(1)", 0, 220);
+	SignalPulse->SetParameters(hWave->GetMaximum(), 
+		10, hWave->GetBinCenter(hWave->GetMinimumBin()), 10, -10, 10);
+	SignalPulse->SetParLimits(1, 0, 1000);
+	SignalPulse->SetParLimits(2, 0, 220);
+	SignalPulse->SetParLimits(4, -50, 0);		
+
+	hWave->Fit("SignalPulse", "QR"); 
+	//layout of the parameters -> Base, Const, Mean, Sigma, Alpha, N
+
+	return SignalPulse;	
+} 
+
+//Choose signal from background on integrated charge
+int PMTAnalyser::Discriminator(float Charge, float Quarter_PE){
+	
+	//If the charge is more negative than 1 PE
+	//set output to 1 
+	if(Charge <= Quarter_PE)
+		return 1; 
+	else
+		return 0;
+}
+
+//Method for integrating the peak signal for 1/4 PE discrimination
+//Not sure what to set Quarter_PE as?
+float PMTAnalyser::Get_Integrated_Peak(short_t waveform){
+	
+	float Integral_Peak = 0.0;
+	short_t Peak = Select_peakSample(waveform, minVDC);
+	short_t BaseLine = Get_baseline_mV(waveform, Peak);
+	
+	for(int iSample; iSample < NSamples: iSample++){
+		
+		Integral_Peak += (waveform[iSample] * mVPerBin) - BaseLine;
+	}
+	
+	return Integral_Peak;
+}
+
 //Get all entries and loop over them, fit specific waveform and get the Rise and fall
 //Then plot this in a Histogram
 void PMTAnalyser::RiseFallTime(){
@@ -1028,8 +1081,10 @@ void PMTAnalyser::RiseFallTime(){
   	canvas->SetWindowSize(w,h);
 
 	//Not sure what is a good range, needs changing
-	TH1F * Rise = new TH1F("Rise", "Rise Time of All Waveforms; Rise Time (ns); Number of PMTs", 25, 0.0, 2.0);
-	TH1F * Fall = new TH1F("FAll", "Fall Time of All Waveforms; Fall Time (ns); Number of PMTs", 100, 0.0, 10.0);
+	TH1F * Rise = new TH1F("Rise", 
+			"Rise Time of All Waveforms; Rise Time (ns); Number of PMTs", 25, 0.0, 2.0);
+	TH1F * Fall = new TH1F("FAll", 
+			"Fall Time of All Waveforms; Fall Time (ns); Number of PMTs", 100, 0.0, 10.0);
 
 	Long64_t entries = rawRootTree->GetEntriesFast();
 	Long64_t nentries;	
@@ -1065,83 +1120,93 @@ void PMTAnalyser::RiseFallTime(){
 	//retrieving the event, making the waveform, and fitting a crystalball to this
 	for ( int jEntry = 0 ; jEntry < nentries ; jEntry++){
 		
+		ientry = LoadTree(jEntry*Sample);
+    	if (ientry < 0) break;
+    	rawRootTree->GetEntry(jEntry*Sample);
+		
 		//A randomised spot check of the waveform fitting
-		int r = rand() % 50;		
+		//int r = rand() % 50;		
 		
-		TH1F * hWave;
-		TString hName;
-		hName = "hName";
-		hWave = Get_hWave(round(jEntry*Sample));
-		//Will need changing for specific parameters ie: Event windows, etc.
-		//May need adjustment for background fitting to reduce effects on results
+		//making the waveform function and fitting it
+		TF1 * SignalPulse;
+		SignalPulse = Get_Pulse_Fit(round(jEntry*Sample));
 		
-		//Fit the line and get roughly in the ball park
-		
-		TF1* SignalPulse = new TF1("SignalPulse", "[0]-crystalball(1)", 0, 220);
-		SignalPulse->SetParameters(hWave->GetMaximum(), 10, hWave->GetBinCenter(hWave->GetMinimumBin()), 10, -10, 10);
-		SignalPulse->SetParLimits(1, 0, 1000);
-		SignalPulse->SetParLimits(2, 0, 220);
-		SignalPulse->SetParLimits(4, -50, 0);		
+		float Quarter_PE = 500.0; //Needs Changing
 
-		hWave->Fit("SignalPulse", "QR"); //layout of the parameters -> Base, Const, Mean, Sigma, Alpha, N
+		//Quarter PE is not define anywhere, Maybe a global definition, or a relative one?
+		if(Discriminator(Get_Integrated_Peak(SignalPulse)
+				, Quarter_PE) > 0){
+					
+			//Finding the peak coordinates
+			Double_t FullHeight = (SignalPulse->GetMaximum())-(SignalPulse->GetMinimum());
+			Double_t FitPeakT = SignalPulse->GetParameter(2);
 		
-		//Finding the peak coordinates
-		Double_t FullHeight = (SignalPulse->GetMaximum())-(SignalPulse->GetMinimum());
-		Double_t FitPeakT = SignalPulse->GetParameter(2);
-		
-		//Unhash to view random waveforms
-		//if(r==7){
-			//char OutFile[17];
-			//sprintf(OutFile, "RanWaveform_%d.png", jEntry);
-			//canvas->SaveAs(OutFile);
-			//}
+			//Unhash to view random waveforms
+			//if(r==7){
+				//char OutFile[17];
+				//sprintf(OutFile, "RanWaveform_%d.png", jEntry);
+				//canvas->SaveAs(OutFile);
+				//}
 
-		//Setting up the time coordinates for rise and fall times
-		Double_t Rise90 = 0.0;
-		Double_t Rise10 = 0.0;
+			//Setting up the time coordinates for rise and fall times
+			Double_t Rise90 = 0.0;
+			Double_t Rise10 = 0.0;
 	
-		Double_t Fall90 = 0.0;
-		Double_t Fall10 = 0.0;
+			Double_t Fall90 = 0.0;
+			Double_t Fall10 = 0.0;
 
-		//To check if the peaks have been assigned
-		int Ticker = 0;
+			//To check if the peaks have been assigned
+			int Ticker = 0;
 
-		//90 and 10 percent of the waveforms	
-		Double_t Ninty = FullHeight*0.9;
-		Double_t Tenty = FullHeight*0.1;
+			//90 and 10 percent of the waveforms	
+			Double_t Ninty = FullHeight*0.9;
+			Double_t Tenty = FullHeight*0.1;
 		
-		//Loop over the function 
-		for(double i = 0.0; i < 220.0 ; i = i + 0.1 ){
+			//Loop over the function 
+			for(double i = 0.0; i < 220.0 ; i = i + 0.1 ){
 		
-			if (SignalPulse->GetMaximum() - SignalPulse->Eval(FitPeakT - i) <= Ninty && Rise90 < 0.1){ //Not sure this is great?
-				Rise90 = FitPeakT - i; 
-				Ticker ++;			
-				}
+				if (SignalPulse->GetMaximum() 
+						- SignalPulse->Eval(FitPeakT - i) 
+						<= Ninty && Rise90 < 0.1){ //Not sure this is great?
+					
+					Rise90 = FitPeakT - i; 
+					Ticker ++;			
+					}
 		
-			if (SignalPulse->GetMaximum() - SignalPulse->Eval(FitPeakT + i) <= Ninty && Fall90 < 0.1){
-				Fall90 = FitPeakT + i;
-				Ticker++;
-				}
+				if (SignalPulse->GetMaximum() 
+						- SignalPulse->Eval(FitPeakT + i) 
+						<= Ninty && Fall90 < 0.1){
+					
+					Fall90 = FitPeakT + i;
+					Ticker++;
+					}
 			
-			if (SignalPulse->GetMaximum() - SignalPulse->Eval(FitPeakT - i) >= Tenty && Rise10 < 0.1){
-				Rise10 = FitPeakT - i;
-				Ticker++;
-				}
+				if (SignalPulse->GetMaximum() 
+						- SignalPulse->Eval(FitPeakT - i) 
+						>= Tenty && Rise10 < 0.1){
+					
+					Rise10 = FitPeakT - i;
+					Ticker++;
+					}
 		
-			if (SignalPulse->GetMaximum() - SignalPulse->Eval(FitPeakT + i) >= Tenty && Fall10 < 0.1){
-				Fall10 = FitPeakT - i;
-				Ticker++;
-				}
+				if (SignalPulse->GetMaximum() 
+						- SignalPulse->Eval(FitPeakT + i) 
+						>= Tenty && Fall10 < 0.1){
+					
+					Fall10 = FitPeakT - i;
+					Ticker++;
+					}
 		
-			//a statment to jump out of the loop
-			if (Ticker > 3)
-				i = 300;
+				//a statment to jump out of the loop
+				if (Ticker > 3)
+					i = 300;
 		
-		//Getting rif of the histogram once finished
-		hWave->~TH1();
-		}
-		Rise->Fill(Rise90 - Rise10);
-		Fall->Fill(Fall10 - Fall90);
+			//Getting rif of the histogram once finished
+			hWave->~TH1();
+			}
+			Rise->Fill(Rise90 - Rise10);
+			Fall->Fill(Fall10 - Fall90);
+			}
 	}
 	Rise->Draw();
 	Rise->Fit("gaus");
@@ -1150,11 +1215,5 @@ void PMTAnalyser::RiseFallTime(){
 	Fall->Draw();
 	Fall->Fit("gaus");
 	canvas->Print("Fall.png");
-	
-
-	
 
 }
-
-	
-
