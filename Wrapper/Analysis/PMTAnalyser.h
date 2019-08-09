@@ -99,7 +99,8 @@ class PMTAnalyser {
   void     Show(Long64_t entry = -1);
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
-
+	void		 RiseFallTime();
+  
  private:
 
   Bool_t testMode;
