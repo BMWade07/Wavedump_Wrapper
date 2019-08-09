@@ -1134,8 +1134,8 @@ void PMTAnalyser::RiseFallTime(){
 		float Quarter_PE = 500.0; //Needs Changing
 
 		//Quarter PE is not define anywhere, Maybe a global definition, or a relative one?
-		if(Discriminator(Get_Integrated_Peak(SignalPulse)
-				, Quarter_PE) > 0){
+		if(Discriminator(Get_Integrated_Peak(SignalPulse), 
+				Quarter_PE) > 0){
 					
 			//Finding the peak coordinates
 			Double_t FullHeight = (SignalPulse->GetMaximum())-(SignalPulse->GetMinimum());
