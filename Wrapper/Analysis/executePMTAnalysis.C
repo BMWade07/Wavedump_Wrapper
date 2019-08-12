@@ -202,7 +202,12 @@ int main(Int_t argc, Char_t *argv[]){
 	 PMT->PlotFFT(event);
        
      }
-     
+     	
+		float_t QuarterPE = 0.0; //Needs to be found
+		 NoiseGate = 0; //Needs renaming
+		//Discriminating between signal and background	
+		NoiseGate = PMT->Integrated_Discriminator(event, QuarterPE);
+		
      //------------
      // Timing Study
      
@@ -215,9 +220,8 @@ int main(Int_t argc, Char_t *argv[]){
 
      //------------
      //Rise/Fall Time Study
-     if(iFile < argc && investigateRiseFall)
-		 	PMT->RiseFallTime();
-
+      if(iFile < argc && investigateRiseFall && NoiseGate == 1)
+			PMT->RiseFallTime();
 
      //------------
      //  Dark Rate

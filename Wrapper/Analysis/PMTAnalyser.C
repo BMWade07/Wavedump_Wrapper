@@ -1014,9 +1014,9 @@ void PMTAnalyser::SetStyle(){
 //to calculate the rise and fall time of the 
 //signals and assign them to the variables taken in
 
-////////////////////////////////////////////////
-//Can not discriminate between signal and noise
-///////////////////////////////////////////////
+
+
+////////
 
 
 //To fit the waveform with a Crystalball fit for integration, darkcounts, and Rise/Fall Time
@@ -1045,19 +1045,18 @@ TF1 * Get_Pulse_Fit(long64_t entry){//TH1F Waveform){
 } 
 
 //Choose signal from background on integrated charge
-int PMTAnalyser::Discriminator(float Charge, float Quarter_PE){
+//Method for integrating the peak signal for 1/4 PE discrimination
+int PMTAnalyser::Discriminator(TH1F hWave){
 	
-	//If the charge is more negative than 1 PE
-	//set output to 1 
-	if(Charge <= Quarter_PE)
-		return 1; 
+	double QuarterPE = 100.0; //mVns
+	double IntegralCharge = mVPerBin*(hWave->Integrate(0, 110) - BaseLine*110); //BinMin to BinMax
+	if(fabs(QuarterPE-IntegralCharge) < 0.0)
+		return 1;
 	else
 		return 0;
 }
 
-//Method for integrating the peak signal for 1/4 PE discrimination
-//Not sure what to set Quarter_PE as?
-float PMTAnalyser::Get_Integrated_Peak(short_t waveform){
+int PMTAnalyser::Integrated_Discriminator(short_t waveform, float Quarter_PE){
 	
 	float Integral_Peak = 0.0;
 	short_t Peak = Select_peakSample(waveform, minVDC);
@@ -1068,7 +1067,14 @@ float PMTAnalyser::Get_Integrated_Peak(short_t waveform){
 		Integral_Peak += (waveform[iSample] * mVPerBin) - BaseLine;
 	}
 	
-	return Integral_Peak;
+	//If the charge is more negative than 1 PE
+	//set output to 1 
+	if(Integral_Peak <= Quarter_PE)
+		return 1; 
+	else
+		return 0;
+
+	//return Integral_Peak;
 }
 
 //Get all entries and loop over them, fit specific waveform and get the Rise and fall
@@ -1122,7 +1128,8 @@ void PMTAnalyser::RiseFallTime(){
 		
 		ientry = LoadTree(jEntry*Sample);
     	if (ientry < 0) break;
-    	rawRootTree->GetEntry(jEntry*Sample);
+    	
+		rawRootTree->GetEntry(jEntry*Sample);
 		
 		//A randomised spot check of the waveform fitting
 		//int r = rand() % 50;		
@@ -1170,7 +1177,7 @@ void PMTAnalyser::RiseFallTime(){
 						<= Ninty && Rise90 < 0.1){ //Not sure this is great?
 					
 					Rise90 = FitPeakT - i; 
-					Ticker ++;			
+					Ticker++;			
 					}
 		
 				if (SignalPulse->GetMaximum() 
@@ -1201,7 +1208,7 @@ void PMTAnalyser::RiseFallTime(){
 				if (Ticker > 3)
 					i = 300;
 		
-			//Getting rif of the histogram once finished
+			//Getting rid of the histogram once finished
 			hWave->~TH1();
 			}
 			Rise->Fill(Rise90 - Rise10);
