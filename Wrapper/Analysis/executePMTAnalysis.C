@@ -30,7 +30,8 @@
  *
  * Known issues
  *   Under linux you will likely be required to add 
- *   the shared (.so) file to your library path 
+ *   the shared (.so) file location to your library path 
+ *   ie add the path to this directory 
  *
  */ 
 
@@ -50,17 +51,34 @@ using namespace std;
 bool IsValidDigitiser(Char_t digitiser,
 		      Int_t  run){
   
-  if( digitiser=='V' && run > 39 ){
-    cerr << " \n Error: Invalid digitiser setting \n" << endl;
+  TString strDigi = "Desktop";
+
+  if( digitiser=='V' && 
+      ( run > 39 && run < 70  )){
+    
+    cerr << " \n Error: Invalid digitiser setting 'V' \n" << endl;
     return false;
+    
   }
-  else if( digitiser=='D'&& 
+  else if( digitiser=='D' && 
 	   run < 40 ){
-    cerr << " \n Error: Invalid digitiser setting \n" << endl;
+    cerr << " \n Error: Invalid digitiser setting 'D' \n" << endl;
     return false;
   }
-  else 
+  else if(digitiser=='D' ||
+	  digitiser=='V'){ 
+    
+    if(digitiser=='V')
+      strDigi = "VME";
+    
+    cout << endl;
+    cout << " Using " << strDigi << " digitiser settings " << endl;
+    
     return true;
+  }
+  else
+    return false;
+  
 }
 
 Bool_t IsInteger(string usrInput){
@@ -88,102 +106,138 @@ Bool_t IsYes(string usrInput){
     return kFALSE;
 }
 
+Bool_t IsValidArgc(int argc){
+
+  if (argc >= 2)
+    return true;
+  else{
+    cerr << " Error, argument needed " << endl; 
+    return false;
+  }
+}
+  
 int main(Int_t argc, Char_t *argv[]){
   
-   TFile * outFile = nullptr;  
-   TFile * inFile = nullptr;
+  // 'V' for VME, 'D' for desktop
+  Char_t  digitiser = 'V';
+  
+  Bool_t investigateTiming   = kTRUE;
+  Bool_t investigatePulses   = kFALSE;
+  Bool_t investigateDarkRate = kFALSE;
+  Bool_t investigateFFT      = kFALSE;
+  Bool_t investigateAP       = kFALSE;
 
-   TTree          * tree = nullptr;
-   PMTAnalyser    * PMT = nullptr;
-   ShippingData   * shipData = nullptr;
-   FileNameParser * testInfo = new FileNameParser();
+  Bool_t writeOutput         = kFALSE;
 
-   // 'V' for VME, 'D' for desktop
-   Char_t  digitiser = 'V';
+  TFile * outFile = nullptr;  
+  TFile * inFile  = nullptr;
+  
+  TTree          * tree = nullptr;
+  PMTAnalyser    * PMT = nullptr;
+  ShippingData   * shipData = nullptr;
+  FileNameParser * testInfo = new FileNameParser();
 
-   if( !IsValidDigitiser(digitiser,testInfo->run(argv[1])))
-     return -1;
+  if( !IsValidDigitiser(digitiser,testInfo->run(argv[1])) ||
+      !IsValidArgc(argc) ){
+    return -1;
+  }
 
-   TString strDigi = "Desktop";
+  // signal threshold for dark rate
+  // and pulse analysis
+  Float_t thresh_mV  = 20.0;
 
-   if(digitiser=='V')
-     strDigi = "VME";
-
-   cout << endl;
-   cout << " Using " << strDigi << " digitiser settings " << endl;
-
-   // Dark Rate
-   Float_t thresh_mV  = 10.0;
-   Int_t   darkRate   = 8000.;
-
-   if(argc==1){
-     cerr << " Error, argument needed " << endl; 
-     return 2;
-   }
-
-   // Testing reading from root file, writing to new file
-   TH1F  * hQ   = nullptr;
-
-   Bool_t investigateTiming = kFALSE;
-   Bool_t investigateRiseFall = kFALSE;
-
-   Float_t peakMeans[argc-1];
-   for (Int_t i = 0 ; i < (argc-1) ; i++)
-     peakMeans[i] = 0.;
-
-   // argv should be a path to a file
-   // or list of files ( wildcards work )
-   for( int iFile = 1 ; iFile < argc ; iFile++){
+  // Dark Rate
+  Int_t   darkRate   = 8000.;
+  
+  // Testing reading from root file, writing to new file
+  TH1F  * hQ   = nullptr;
+  
+  // Timing peaks
+  Float_t peakMeans[argc-1], peakMean;
+  for (Int_t i = 0 ; i < (argc-1) ; i++)
+    peakMeans[i] = 0.;
+  
+  // argv should be a path to a file
+  // or list of files ( wildcards work )
+  for( int iFile = 1 ; iFile < argc ; iFile++){
+    
+    inFile = new TFile(argv[iFile],"READ");
+    
+    if (!inFile || !inFile->IsOpen()) {
+      inFile = new TFile();
+      cerr << " Error, Check File: " << argv[iFile] << endl; 
+      return -1;
+    }
+    
+    // connect to tree in input file
+    TString treeName = (TString)testInfo->GetTreeName(argv[iFile]);
+    inFile->GetObject(treeName,tree); 
+    
+    // initalise analysis object using tree 
+    PMT = new PMTAnalyser(tree,
+			  digitiser);
+    
+    // Set plot attributes to WM TStyle 
+    PMT->SetStyle();
+    
+    // Limit to subset of entries for quicker testing
+    //PMT->SetTestMode(kFALSE);
+    PMT->SetTestMode();
      
-     inFile = new TFile(argv[iFile],"READ");
-     
-     if (!inFile || !inFile->IsOpen()) {
-       inFile = new TFile();
-       cerr << " Error, Check File: " << argv[iFile] << endl; 
-       return -1;
-     }
-     
-     // connect to tree in input file
-     TString treeName = (TString)testInfo->GetTreeName(argv[iFile]);
-     inFile->GetObject(treeName,tree); 
-     
+    // Testing output 
+    //PMT->MakeCalibratedTree();
 
-     // initalise analysis object using tree 
-     PMT = new PMTAnalyser(tree,
-			   digitiser);
-     
-     // Set plot attributes to bespoke TStyle 
-     PMT->SetStyle();
-     
-     // Limit to subset of entries for quicker testing
-     PMT->SetTestMode(kFALSE);
-     
-     // Towards saving analysis output 
-     //PMT->MakeCalibratedTree();
+    shipData = new ShippingData(testInfo->pmtID(argv[iFile]));
+    
+    // FFT study
+    // PMT->PlotAccumulatedFFT();
+    
+    //------------
+    // Timing Study
+    
+    if(iFile < argc && investigateTiming){
+      peakMean = PMT->TimeOfPeak(thresh_mV);
+      peakMeans[iFile-1] = peakMean;
+      cout << endl;
+      cout << " mean of gaussian fit to peak " << 
+	peakMeans[iFile-1] << endl;
+    }
+    
+    //------------
+    //Rise/Fall Time Study
+    
 
-     shipData = new ShippingData(testInfo->pmtID(argv[iFile]));
-     
-     int event = 0;
-     
-     // FFT study
-     //PMT->PlotAccumulatedFFT();
-     
-     // plot waveforms
-     event = 0;
-     while ( event!= -1 ){
-       cout << endl;
-       cout << " Which waveform to plot?" << endl;
-       cout << " enter event number,    " << endl;
-       cout << " enter for next event   " << endl;
-       cout << " or -1 to quit          " << endl;
+		int nIntegralDarks = 0;
+    // number of pulses to fit 
+    int nPulses = 2500;
+    nIntegralDarks = PMT->RiseFallTime(nPulses,peakMean);
+		
+		cout << " Dark Counts " << nIntegralDarks<< endl;
+		
+    int event = 0;
+    if(!investigatePulses) 
+      event = -1;
+    
+    // plot waveforms and 
+    // optionall1y in addition FFT
+    
+    Bool_t plotFFTs = true;
+    string usrInFFT = "n";
+
+    while ( event!= -1 ){
+      cout << endl;
+      cout << " Which waveform to plot?" << endl;
+      cout << " enter event number,    " << endl;
+      cout << " enter for next event   " << endl;
+      cout << " or -1 to quit          " << endl;
+      
+       string usrInWav;
+       getline(cin, usrInWav);
        
-       string usrInput;
-       getline(cin, usrInput);
-       
-       if (usrInput.empty())
+       if (usrInWav.empty())
 	 event++;
-       else if(IsInteger(usrInput))
-	   event = stoi(usrInput); 
+       else if(IsInteger(usrInWav))
+	 event = stoi(usrInWav); 
        else 
 	 continue;
        
@@ -192,40 +246,23 @@ int main(Int_t argc, Char_t *argv[]){
        else
 	 continue;
        
-       cout << endl;
-       cout << " Plot FFT?" << endl;
-       cout << " answer: y/n " << endl;
+       if(!plotFFTs)
+	 continue;
        
-       getline(cin, usrInput);
-
-       if ( IsYes(usrInput) )
+       if(usrInFFT=='n'){
+	 cout << endl;
+	 cout << " Plot FFT/s?"  << endl;
+	 cout << " answer: y/n " << endl;
+	 getline(cin, usrInFFT);
+       }
+       
+       if  ( IsYes(usrInFFT) )
 	 PMT->PlotFFT(event);
-       
-     }
-     	
-		float_t QuarterPE = 0.0; //Needs to be found
-		 NoiseGate = 0; //Needs renaming
-		//Discriminating between signal and background	
-		NoiseGate = PMT->Integrated_Discriminator(event, QuarterPE);
-		
-     //------------
-     // Timing Study
-     
-     if(iFile < argc && investigateTiming){
-       peakMeans[iFile-1] = PMT->TimeOfPeak();
-       cout << endl;
-       cout << " mean of gaussian fit to peak " << 
-	 		 peakMeans[iFile-1] << endl;
-     }
-
-     //------------
-     //Rise/Fall Time Study
-      if(iFile < argc && investigateRiseFall && NoiseGate == 1)
-			PMT->RiseFallTime();
-
-     //------------
+       else
+	 plotFFTs = false;
+    }
+    //------------
      //  Dark Rate
-     Bool_t investigateDarkRate = kTRUE;
      if( investigateDarkRate && 
 	 testInfo->test(argv[iFile])=='D'){
        
@@ -235,7 +272,6 @@ int main(Int_t argc, Char_t *argv[]){
      
      //------------
      //  FFT investigation
-     Bool_t investigateFFT = kFALSE;
      // Make Filtered Histograms
      if(investigateFFT){ 
        TCanvas * canvas = PMT->Make_FFT_Canvas();
@@ -262,8 +298,16 @@ int main(Int_t argc, Char_t *argv[]){
        }
      }
      
+     cout << endl;
+     cout << " Analysis Complete " << endl;
+
+     cout << endl;
+     cout << " Deleting input file pointer" << endl;
      inFile->Delete();
 
+     if(!writeOutput)
+       continue;
+     
      TString hName = testInfo->Get_hQ_Fixed_Name(argv[iFile]); 
      hQ = (TH1F*)inFile->Get(hName);
      
@@ -272,13 +316,17 @@ int main(Int_t argc, Char_t *argv[]){
      TString fileID = (TString)testInfo->GetFileID(argv[iFile]);
      
      outputName = fileID + outputName;
-     
+
+     cout << endl;
+     cout << " Recreating output file " << endl;
      outFile = new TFile(outputName,"RECREATE");
      
      // Writing to file
      // put file in same directory as objects
      outFile->cd();
      
+     cout << endl;
+     cout << " Writing histogram " << endl;
      // Write specific histogram
      hQ->Write();
      
@@ -286,7 +334,9 @@ int main(Int_t argc, Char_t *argv[]){
      
      // Write objects in directory 
      // outFile->Write();
-     
+
+     cout << endl;
+     cout << " Closing Output file " << endl;
      outFile->Close();
      
    }

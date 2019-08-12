@@ -39,6 +39,7 @@ class PMTAnalyser {
   Float_t        VoltageRange;
   Float_t        mVPerBin;
   Float_t        nsPerSample;
+  bool           negPulsePol;
   
   Float_t        waveformDuration;
 
@@ -78,15 +79,18 @@ class PMTAnalyser {
   void     PlotFFT(Long64_t entry);
   void     PlotWaveform(Long64_t entry);
   void     PlotAccumulatedFFT();
-  TH1F *   Get_hWave(Long64_t entry);
+  void     Get_hWave(Long64_t entry, TH1F * hWave);
   TH1F *   Get_hFFT(Long64_t entry);
   Int_t    DarkRate(Float_t);
-  Short_t  Get_baseline_ADC(Long64_t);
-  Float_t  Get_baseline_mV(Short_t waveform[],
-			   Float_t peakT_ns);
+  Bool_t   IsSampleInBaseline(int,Short_t);
+  Short_t  Get_baseline_ADC(Short_t option = 0,
+			    Long64_t entry = -1);
+  Float_t  Get_baseline_mV(Short_t option = 0,
+			   Long64_t entry = -1);
+  //  Short_t  GetNPeaks(Int_t, Float_t);    
   Short_t  Select_peakSample(Short_t waveform[],
 			     Short_t peakVDC);
-  Float_t  TimeOfPeak();
+  Float_t  TimeOfPeak(Float_t);
   TH1F*    FFTShift(TH1F *, Float_t);
   TCanvas* Make_FFT_Canvas();
   Int_t    FFT_Filter();
@@ -96,8 +100,9 @@ class PMTAnalyser {
   void     Show(Long64_t entry = -1);
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
-	void		 RiseFallTime();
-  
+  int      RiseFallTime(int,float);
+  int	     Discriminator(double_t, double_t);
+	
  private:
 
   Bool_t testMode;
@@ -167,9 +172,20 @@ void PMTAnalyser::Init(TTree *tree,
   NVDCBins     = dataInfo->GetNVDCBins(digitiser);
   mVPerBin     = dataInfo->GetmVPerBin(digitiser);  
   nsPerSample  = dataInfo->GetnsPerSample(digitiser);  
+  negPulsePol  = dataInfo->GetNegPulsePol(Test);  
   
   waveformDuration = (float)NSamples * nsPerSample;
   
+  cout << endl;
+  cout << " NSamples         = " << NSamples         << endl;
+  cout << " VoltageRange     = " << VoltageRange     << endl;
+  cout << " NVDCBins         = " << NVDCBins         << endl;
+  cout << " mVPerBin         = " << mVPerBin         << endl;
+  cout << " nsPerSample      = " << nsPerSample      << endl;
+  cout << " negPulsePol      = " << negPulsePol      << endl;
+  cout << " waveformDuration = " << waveformDuration << endl;
+  cout << endl;
+
   // initalise to 0 to guarantee uniqueness
   rand3 = new TRandom3(0); 
 
