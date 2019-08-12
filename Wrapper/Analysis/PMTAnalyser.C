@@ -1032,6 +1032,21 @@ void PMTAnalyser::SetStyle(){
 // Author: Ben Wade
 // s1520134@ed.ac.uk
 //
+//A discriminator between signal and noise (Darkcount)
+
+int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
+	
+	Double_t QuarterPE = 100.0;
+	IntegratedCharge = mVPerBin*WaveIntegral - BaseLine*110;
+	
+	
+	if(fabs(IntegratedChagre - QuarterPE) > 0.0 )
+		return 1;
+
+	else
+		return 0;	
+}
+
 // Designed to take in the waveform of an event 
 // (and 2 floats for the values)
 // and fit a Gaussian peak with an exponential 
@@ -1039,9 +1054,12 @@ void PMTAnalyser::SetStyle(){
 // to calculate the rise and fall time of the 
 // signals and assign them to the variables taken in
 
-void PMTAnalyser::RiseFallTime(int totPulses = 10,
+int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			       float peakMean = 65.){
   
+	//Dual Perpose for dark rate/count
+	int nDark = 0;
+	
   //Making the canvas for the plots
   TCanvas * can = new TCanvas;
   Float_t w = 1000., h = 500.;
@@ -1100,13 +1118,21 @@ void PMTAnalyser::RiseFallTime(int totPulses = 10,
     
     // get histogram of waveform
     Get_hWave(entry,hWave);
-    
+   		
     maxADC = hWave->GetMaximum();
     minADC = hWave->GetMinimum();
-
+		
     // use full waveform to calculate baseline
     baseline = Get_baseline_ADC(1,entry);
-    
+    		 
+		//Checking the size of the hWave to speed up the process
+		if(Discriminator(hWave->Integral(0, 110.0), baseline) == 0){
+			nDarks++;
+			nPulses++;
+			continue;
+			}
+		//Need to check the Baseline settings for effective use^
+		
     if(negPulsePol){      
       peakADC  = hWave->GetMinimum();
       floorADC = hWave->GetMaximum();
@@ -1156,6 +1182,12 @@ void PMTAnalyser::RiseFallTime(int totPulses = 10,
     
     hWave->Fit("fWave", "QR"); 
 
+		//Second Check for dark counts to ensure a good fit?
+		if (Discriminator(fWave->Integral(0.0, 220.0), fWave->GetParameter(0))){
+		nDarks++;
+		continue;
+		}
+		
     //Finding the peak coordinates
     Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
     Double_t FitPeakT   = fWave->GetParameter(2);
@@ -1271,5 +1303,6 @@ void PMTAnalyser::RiseFallTime(int totPulses = 10,
   Fall->Draw();
   //Fall->Fit("gaus");
   can->SaveAs("./RiseFall/Fall_" + hName);
-  
+	
+	return nDarks;  
 }

@@ -206,10 +206,14 @@ int main(Int_t argc, Char_t *argv[]){
     //------------
     //Rise/Fall Time Study
     
+
+		int nIntegralDarks = 0;
     // number of pulses to fit 
     int nPulses = 2500;
-    PMT->RiseFallTime(nPulses,peakMean);
-
+    nIntegralDarks = PMT->RiseFallTime(nPulses,peakMean);
+		
+		cout << " Dark Counts " << nIntegralDarks<< endl;
+		
     int event = 0;
     if(!investigatePulses) 
       event = -1;
