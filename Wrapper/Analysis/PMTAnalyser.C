@@ -1037,14 +1037,17 @@ void PMTAnalyser::SetStyle(){
 int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
 	
 	Double_t QuarterPE = 100.0;
-	Double_t IntegratedCharge = mVPerBin*WaveIntegral - BaseLine*110;
+	Double_t IntegratedCharge = (BaseLine-WaveIntegral)*mVPerBin ;
+	//cout<<"mVPerBin          = "<<mVPerBin<<endl;
+	//cout<<"BaseLine          = "<<BaseLine<<endl;
+	//cout<<"WaveIntegration   = "<<WaveIntegral<<endl; 
+	cout<<"Integrated Charge = "<<IntegratedCharge<<endl;	
 	
-	
-	if(fabs(IntegratedChagre - QuarterPE) > 0.0 )
-		return 1;
+	if(fabs(IntegratedCharge - QuarterPE) > 0.0 )
+		return 1;	//An accurate peak	
 
 	else
-		return 0;	
+		return 0;	//A Noise
 }
 
 // Designed to take in the waveform of an event 
@@ -1112,9 +1115,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 
   // fit waveforms with crystal ball fit
   while ( nPulses < totPulses ){ 
-  
+  	
     // find random entry number within event sample
-    entry = (Long64_t)round(rand()*nentries/RAND_MAX); 
+    entry = (Long64_t)round(rand()*nentries/RAND_MAX);
     
     // get histogram of waveform
     Get_hWave(entry,hWave);
@@ -1126,8 +1129,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     baseline = Get_baseline_ADC(1,entry);
     		 
 		//Checking the size of the hWave to speed up the process
-		if(Discriminator(hWave->Integral(0, 110.0), baseline) == 0){
-			nDarks++;
+		if(Discriminator((hWave->Integral(0.0, 110.0))*2, maxADC*220) == 0){
+			//nDarks++;
+			cout<<"No Charge Signal"<<endl;
 			nPulses++;
 			continue;
 			}
@@ -1143,9 +1147,10 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     }
     
     // vito pulses with ringing above threshold 
-    if( TMath::Abs( floorADC - baseline )*mVPerBin  > thresh_mV_low )
-      continue;
-    
+    if( TMath::Abs( floorADC - baseline )*mVPerBin  > thresh_mV_low ){
+      //nPulses++; //Maybe needed?
+			continue;
+    	}
 //     cout << endl;
 //     cout << " Passes pulse vito " <<  endl;
 
@@ -1153,9 +1158,10 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     
     // pulse amplitude range
     if(range_mV  < thresh_mV_low ||
-       range_mV  > thresh_mV_high )
-      continue;
-    
+       range_mV  > thresh_mV_high ){
+      //nPulses++;
+			continue;
+    	}
     //     cout << endl;
     //     cout << " Passes range vito " <<  endl;
 
@@ -1166,9 +1172,10 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     
     // insist on pulse being synched with LED trigger
     // +/- one sigma acceptance
-    if( TMath::Abs(peakT - peakMean) > 8. )
-      continue;
-    
+    if( TMath::Abs(peakT - peakMean) > 8. ){
+      //nPulses++;
+			continue;
+    	}
     nPulses++;    
 
     cout << endl;
@@ -1183,8 +1190,10 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     hWave->Fit("fWave", "QR"); 
 
 		//Second Check for dark counts to ensure a good fit?
-		if (Discriminator(fWave->Integral(0.0, 220.0), fWave->GetParameter(0))){
-		nDarks++;
+		if (Discriminator(fWave->Integral(0.0, 220.0), fWave->GetParameter(0)) == 0){
+		//nDarks++;
+		cout<<"Fit Integral not Signal"<<endl;
+		nPulses++;
 		continue;
 		}
 		
@@ -1192,7 +1201,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
     Double_t FitPeakT   = fWave->GetParameter(2);
     
-    bool doPlot = false; 
+    bool doPlot = true;//false; 
     if(nPulses%10 == 0 && doPlot){
       char OutFile[128];
       sprintf(OutFile, "Waveform_%lld_HV_%d.png", entry,HVStep);
