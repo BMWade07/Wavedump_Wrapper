@@ -101,7 +101,8 @@ class PMTAnalyser {
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
   int      RiseFallTime(int,float);
-  int	     Discriminator(double_t, double_t);
+  int      Discriminator(double_t, double_t);
+	Short_t  CrudeBaseline(TH1F *, int);
 	
  private:
 
@@ -172,7 +173,7 @@ void PMTAnalyser::Init(TTree *tree,
   NVDCBins     = dataInfo->GetNVDCBins(digitiser);
   mVPerBin     = dataInfo->GetmVPerBin(digitiser);  
   nsPerSample  = dataInfo->GetnsPerSample(digitiser);  
-  negPulsePol  = dataInfo->GetNegPulsePol(Test);  
+  //negPulsePol  = dataInfo->GetNegPulsePol(Test);  
   
   waveformDuration = (float)NSamples * nsPerSample;
   

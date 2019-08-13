@@ -1031,16 +1031,29 @@ void PMTAnalyser::SetStyle(){
 
 // Author: Ben Wade
 // s1520134@ed.ac.uk
-//
+//A quick baseline for initial darkcount discrimination, not to be used as actual baseline
+Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
+	
+	if(fabs(PeakADC-30) < 5){
+		//Checking there is space for a 5 bin average
+		//if not then integrating the last 5 bins
+		return hWave->Integral(105,110)/5; //AKA:150 ns->160 ns
+	}
+	else{
+		//integrate the first 5 bins
+		return hWave->Integral(0, 5)/5;
+	}
+}
+
 //A discriminator between signal and noise (Darkcount)
 
 int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
 	
 	Double_t QuarterPE = 100.0;
 	Double_t IntegratedCharge = (BaseLine-WaveIntegral)*mVPerBin ;
-	//cout<<"mVPerBin          = "<<mVPerBin<<endl;
-	//cout<<"BaseLine          = "<<BaseLine<<endl;
-	//cout<<"WaveIntegration   = "<<WaveIntegral<<endl; 
+	cout<<"mVPerBin          = "<<mVPerBin<<endl;
+	cout<<"BaseLine          = "<<BaseLine<<endl;
+	cout<<"WaveIntegration   = "<<WaveIntegral<<endl; 
 	cout<<"Integrated Charge = "<<IntegratedCharge<<endl;	
 	
 	if(fabs(IntegratedCharge - QuarterPE) > 0.0 )
@@ -1127,16 +1140,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 		
     // use full waveform to calculate baseline
     baseline = Get_baseline_ADC(1,entry);
-    		 
-		//Checking the size of the hWave to speed up the process
-		if(Discriminator((hWave->Integral(0.0, 110.0))*2, maxADC*220) == 0){
-			//nDarks++;
-			cout<<"No Charge Signal"<<endl;
-			nPulses++;
-			continue;
-			}
-		//Need to check the Baseline settings for effective use^
-		
+    		 		
     if(negPulsePol){      
       peakADC  = hWave->GetMinimum();
       floorADC = hWave->GetMaximum();
@@ -1146,6 +1150,18 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       floorADC = hWave->GetMinimum();
     }
     
+		//Checking the size of the hWave to speed up the process
+		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
+				CrudeBaseline(hWave, peakADC)*220) == 0){
+			
+			//nDarks++;
+			cout<<"No Charge Signal"<<endl;
+			nPulses++;
+			continue;
+			}
+		//Need to check the Baseline settings for effective use^
+
+		
     // vito pulses with ringing above threshold 
     if( TMath::Abs( floorADC - baseline )*mVPerBin  > thresh_mV_low ){
       //nPulses++; //Maybe needed?
