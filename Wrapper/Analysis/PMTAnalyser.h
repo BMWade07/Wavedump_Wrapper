@@ -102,6 +102,7 @@ class PMTAnalyser {
   void     SetTestMode(Bool_t userTestMode = kTRUE);
   int      RiseFallTime(int,float);
   int	     Discriminator(double_t, double_t);
+	Short_t	 CrudeBaseline(TH1F *, int);
 	
  private:
 

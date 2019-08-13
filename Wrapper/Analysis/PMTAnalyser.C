@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 
-#include "../BinToRoot/wmStyle.C"
+#include "../BinToRoot/wmStyle.C" //#include ../BinaryConversion/wmStyle.C
 
 Int_t PMTAnalyser::GetNEntriesTest(Int_t verbosity,
 				   Int_t nentries){
@@ -1032,15 +1032,34 @@ void PMTAnalyser::SetStyle(){
 // Author: Ben Wade
 // s1520134@ed.ac.uk
 //
+//A Quick baseline for initial discriminations
+
+Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
+	
+	if(fabs(PeakADC-30) < 10){
+		//Checking there is space for a 5 bin average
+		//if not then integrating the last 5 bins
+		return hWave->Integral(100,110)/10; //AKA:150 ns->160 ns
+	}
+	else{
+		//integrate the first 5 bins
+		return hWave->Integral(0, 10)/10;
+	}
+}
+
 //A discriminator between signal and noise (Darkcount)
 
 int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
 	
 	Double_t QuarterPE = 100.0;
-	IntegratedCharge = mVPerBin*WaveIntegral - BaseLine*110;
+	Double_t IntegratedCharge = (BaseLine - WaveIntegral)*mVPerBin;
 	
-	
-	if(fabs(IntegratedChagre - QuarterPE) > 0.0 )
+//	cout<<"mVPerBin          = "<<mVPerBin<<endl;
+//	cout<<"BaseLine          = "<<BaseLine<<endl;
+//	cout<<"WaveIntegration   = "<<WaveIntegral<<endl; 
+//	cout<<"Integrated Charge = "<<IntegratedCharge<<endl; 
+		
+	if(fabs(IntegratedCharge - QuarterPE) > 0.0) 
 		return 1;
 
 	else
@@ -1058,7 +1077,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			       float peakMean = 65.){
   
 	//Dual Perpose for dark rate/count
-	int nDark = 0;
+	int nSignals = 0;
 	
   //Making the canvas for the plots
   TCanvas * can = new TCanvas;
@@ -1125,8 +1144,11 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
   while ( nPulses < totPulses ){ 
   
     // find random entry number within event sample
-    entry = (Long64_t)round(rand()*nentries/RAND_MAX); 
+    //entry = (Long64_t)round(rand()*nentries/RAND_MAX); 
 
+		//opening the floodgates
+		while(entry < nentries){
+	
     // get histogram of waveform
     Get_hWave(entry,hWave);
    		
@@ -1140,8 +1162,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       baseline = Get_baseline_ADC(1,entry);
        		 
 		//Checking the size of the hWave to speed up the process
-		if(Discriminator(hWave->Integral(0, 110.0), baseline) == 0){
-			nDarks++;
+		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
+				CrudeBaseline(hWave, peakADC)*220) == 0){
+			
 			nPulses++;
 			continue;
 			}
@@ -1222,9 +1245,10 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     float fPeak = 0., fFloor = 0.;
 
 		//Second Check for dark counts to ensure a good fit?
-		if (Discriminator(fWave->Integral(0.0, 220.0), fWave->GetParameter(0))){
-		nDarks++;
-		continue;
+		if (Discriminator(fWave->Integral(0.0, 220.0), 
+				fWave->GetParameter(0))){
+		
+			continue;
 		}
 		
     //Finding the peak coordinates
@@ -1349,9 +1373,13 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       can->SaveAs(OutFile);
     }
     
+		nSignals++; //For darkcounts maybe
+	
     Rise->Fill(riseTime);
     Fall->Fill(fallTime);
-  }
+  	entry++;
+		}
+	}
   
   hWave->Delete();   
   
@@ -1367,5 +1395,5 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
   //Fall->Fit("gaus");
   can->SaveAs("./RiseFall/Fall_" + hName);
 	
-	return nDarks;  
+	return nSignals;  
 }
