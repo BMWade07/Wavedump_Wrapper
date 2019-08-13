@@ -1163,10 +1163,11 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       baseline = Get_baseline_ADC(0,entry);
     else
       baseline = Get_baseline_ADC(1,entry);
-       		 
+    
+		Short_t crudebaseline = CrudeBaseline(hWave, peakADC);   		 
 		//Checking the size of the hWave to speed up the process
 		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
-				CrudeBaseline(hWave, peakADC)*220) == 0){
+				crudebaseline*220) == 0){
 			entry++;
 			//nPulses++;
 			continue;
@@ -1227,9 +1228,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     //cout << " Fitting pulse number " << nPulses <<"."<< entry <<   endl;
 	
     // Base, Const, Mean, Sigma, Alpha, N
-    fWave->SetParameters(floorADC,10,peakT,10,-10,10);
+    fWave->SetParameters(crudebaseline, crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
     
-    if(Run >= 70)
+	  if(Run >= 70)
       fWave->SetParLimits(1, 0, 10000);
     else
       fWave->SetParLimits(1, 0, 1000);
@@ -1240,8 +1241,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     hWave->Draw();
     fWave->SetLineWidth(2);
     hWave->Fit("fWave", "QR"); 
-
-
+		//Double_t Params[6];
+		//fWave->GetParameters(&Params[0]);
+		
 //     if(Run == 70 )
 //       hWave->GetXaxis()->SetRange(0,waveformDuration*1./3);
 //     if(Run == 71 )
@@ -1384,7 +1386,13 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 	sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",Run,entry,Test);
       can->SaveAs(OutFile);
     }
-    
+    //cout<<" Baseline :"<<Params[0]<<endl;
+    //cout<<" Constant :"<<Params[1]<<endl;
+    //cout<<" Mean     :"<<Params[2]<<endl;
+    //cout<<" Sigma    :"<<Params[3]<<endl;
+    //cout<<" Alpha    :"<<Params[4]<<endl;
+    //cout<<" N        :"<<Params[5]<<endl;
+
 		nSignals++; //For darkcounts maybe
 	
     Rise->Fill(riseTime);
