@@ -1046,7 +1046,20 @@ Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
 		return hWave->Integral(0, 10)/10;
 	}
 }
+//Hopefully a quick way to find the sigma of a peak
+Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
+	
+	While(LeadBin == 0 || TrailBin == 0){ 
+		
+		if(HalfLine-hWave->GetBinContent(Peak-nBins)<0.0 && LeadBin == 0)
+			LeadBin = nBins;	
+	
+		if(HalfLine-hWave->GetBinContent(Peak+nBins)<0.0 && TrailBin == 0)
+			TrainBin = nBins;
+		}
 
+	return TrailBin - LeadBin;
+}
 //A discriminator between signal and noise (Darkcount)
 
 int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
@@ -1228,7 +1241,8 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     //cout << " Fitting pulse number " << nPulses <<"."<< entry <<   endl;
 	
     // Base, Const, Mean, Sigma, Alpha, N
-    fWave->SetParameters(crudebaseline, crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
+    fWave->SetParameters(crudebaseline, 
+				crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
     
 	  if(Run >= 70)
       fWave->SetParLimits(1, 0, 10000);
