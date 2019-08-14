@@ -103,7 +103,8 @@ class PMTAnalyser {
   int      RiseFallTime(int,float);
   int	     Discriminator(double_t, double_t);
 	Short_t	 CrudeBaseline(TH1F *, int);
-	
+	Short_t	 CrudeSigma(TH1F *, Short_t);	
+
  private:
 
   Bool_t testMode;

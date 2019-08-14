@@ -1058,7 +1058,7 @@ Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
 			TrainBin = nBins;
 		}
 
-	return TrailBin - LeadBin;
+	return (TrailBin - LeadBin)/2.36;
 }
 //A discriminator between signal and noise (Darkcount)
 
@@ -1178,6 +1178,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       baseline = Get_baseline_ADC(1,entry);
     
 		Short_t crudebaseline = CrudeBaseline(hWave, peakADC);   		 
+		Short_t crudesigma = CrudeSigma(hWave, crudebaseline-0.5*peakADC);
 		//Checking the size of the hWave to speed up the process
 		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
 				crudebaseline*220) == 0){
@@ -1242,7 +1243,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 	
     // Base, Const, Mean, Sigma, Alpha, N
     fWave->SetParameters(crudebaseline, 
-				crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
+				crudebaseline-peakADC, peakT, crudesigma, -10, 10);//floorADC,10,peakT,10,-10,10);
     
 	  if(Run >= 70)
       fWave->SetParLimits(1, 0, 10000);
