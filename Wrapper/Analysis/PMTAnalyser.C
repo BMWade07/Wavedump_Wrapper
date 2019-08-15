@@ -1049,13 +1049,18 @@ Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
 //Hopefully a quick way to find the sigma of a peak
 Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
 	
-	While(LeadBin == 0 || TrailBin == 0){ 
-		
-		if(HalfLine-hWave->GetBinContent(Peak-nBins)<0.0 && LeadBin == 0)
-			LeadBin = nBins;	
+	Short_t LeadBin, TrailBin;
 	
-		if(HalfLine-hWave->GetBinContent(Peak+nBins)<0.0 && TrailBin == 0)
-			TrainBin = nBins;
+	int nBins = 0;
+		
+	while(LeadBin == 0 || TrailBin == 0){ 
+		
+		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()-nBins)<0.0 && LeadBin == 0)
+			LeadBin = nBins;	
+		
+		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()+nBins)<0.0 && TrailBin == 0)
+			TrailBin = nBins;
+		nBins++;
 		}
 
 	return (TrailBin - LeadBin)/2.36;
@@ -1111,8 +1116,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     Fall->SetBins(64,11.5,21.5);
   }
   
-  Long64_t nentries  = rawRootTree->GetEntriesFast();
-  Long64_t entry     = 0;
+  
   int      nPulses   = 0;    // counter
   
   float    thresh_mV_low  = 15. ;
@@ -1155,7 +1159,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 
   // fit waveforms with crystal ball function
   while ( nPulses < totPulses ){ 
-  
+		
+		Long64_t nentries  = rawRootTree->GetEntriesFast();
+  	Long64_t entry     = 0;  
     // find random entry number within event sample
     //entry = (Long64_t)round(rand()*nentries/RAND_MAX); 
 		
@@ -1164,7 +1170,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 		//opening the floodgates
 		while(entry < nentries){
 		//if(entry%1000==0)
-		//	cout<<" On Entry:          "<<entry<<endl;
+			//cout<<" On Entry:          "<<entry<<endl;
     //get histogram of waveform
     Get_hWave(entry,hWave);
    		
@@ -1178,7 +1184,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       baseline = Get_baseline_ADC(1,entry);
     
 		Short_t crudebaseline = CrudeBaseline(hWave, peakADC);   		 
-		Short_t crudesigma = CrudeSigma(hWave, crudebaseline-0.5*peakADC);
+		//Short_t crudesigma = CrudeSigma(hWave, crudebaseline-0.5*peakADC);
 		//Checking the size of the hWave to speed up the process
 		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
 				crudebaseline*220) == 0){
@@ -1243,13 +1249,14 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 	
     // Base, Const, Mean, Sigma, Alpha, N
     fWave->SetParameters(crudebaseline, 
-				crudebaseline-peakADC, peakT, crudesigma, -10, 10);//floorADC,10,peakT,10,-10,10);
+				crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
     
-	  if(Run >= 70)
-      fWave->SetParLimits(1, 0, 10000);
-    else
-      fWave->SetParLimits(1, 0, 1000);
-    
+	  //if(Run >= 70)
+      //fWave->SetParLimits(1, 0, 10000);
+    //else
+    	//fWave->SetParLimits(1, 0, 1000);
+    fWave->SetParLimits(1, 0, 100000);
+		
     fWave->SetParLimits(2, 0, waveformDuration);
     fWave->SetParLimits(4, -50, 0);
     
@@ -1266,7 +1273,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 
     // Determine rise and fall times
     // from function fit
-    float fPeak = 0., fFloor = 0.;
+    float fPeak = 0., fFloor = 0., fPeakT = 0.;
 		
 		//sorting the function integrals
 		double *x = new double[220];
@@ -1288,14 +1295,15 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     if(negPulsePol){
       fPeak  = fWave->GetMinimum(0,waveformDuration);
       fFloor = fWave->GetMaximum(0,waveformDuration);
-
+			fPeakT = fWave->GetMinimumX();
     }
     else{
       fPeak  = fWave->GetMaximum(0,waveformDuration);
       fFloor = fWave->GetMinimum(0,waveformDuration);
-    }
+    	fPeakT = fWave->GetMaximumX();
+		}
     
-    float fPeakT = fWave->GetX(fPeak,0,waveformDuration);    
+    //float fPeakT = fWave->GetX(fPeak,0,waveformDuration);    
 
     float fBase = fWave->GetParameter(0);
     
@@ -1316,18 +1324,23 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     
     // range in X to search for y values 
     float fXAtPeak = fWave->GetX(fPeak,0,waveformDuration);
-    float fPreMin  = fXAtPeak - 10.; 
+    float fPreMin  = fPeakT - 15;//10.;//fXAtPeak - 10.; 
     
     if(Run >= 70)
-      fPreMin = fXAtPeak - 25.;
+      fPreMin = fPeakT -25;//fXAtPeak - 25.;
 
-    float fPostMin = fXAtPeak + 25;
+    float fPostMin = fPeakT + 30;//25;//fXAtPeak + 25;
     
-    float timeRise10 = fWave->GetX(f010,fPreMin,fXAtPeak);
-    float timeRise90 = fWave->GetX(f090,fPreMin,fXAtPeak);
+		cout<<" fPeak      = "<<fPeak<<endl;
+		cout<<" fPeakT     = "<<fPeakT<<endl;
+		cout<<" f010, f090 = "<<f010<<", "<<f090<<endl; 		
+		cout<<" fXAtPeak   = "<<fXAtPeak<<endl;
+
+    float timeRise10 = fWave->GetX(f010,fPreMin,fPeakT);//fXAtPeak);
+    float timeRise90 = fWave->GetX(f090,fPreMin,fPeakT);//fXAtPeak);
     
-    float timeFall10 = fWave->GetX(f010,fXAtPeak,fPostMin);
-    float timeFall90 = fWave->GetX(f090,fXAtPeak,fPostMin);
+    float timeFall10 = fWave->GetX(f010,fPeakT, fPostMin);//fXAtPeak,fPostMin);
+    float timeFall90 = fWave->GetX(f090,fPeakT, fPostMin);//fXAtPeak,fPostMin);
     
     float riseTime   = timeRise90 - timeRise10;
     float fallTime   = timeFall10 - timeFall90;
@@ -1414,6 +1427,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     Fall->Fill(fallTime);
   	entry++;
 		}
+	nPulses++;	
 	}
   
   hWave->Delete();   
