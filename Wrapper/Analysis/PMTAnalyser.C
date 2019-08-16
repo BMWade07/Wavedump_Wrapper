@@ -1033,7 +1033,7 @@ void PMTAnalyser::SetStyle(){
 // s1520134@ed.ac.uk
 //
 //A Quick baseline for initial discriminations
-
+//NOT IN USE
 Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
 	
 	if(fabs(PeakADC-30) < 10){
@@ -1326,6 +1326,8 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     float fXAtPeak = fWave->GetX(fPeak,0,waveformDuration);
     float fPreMin  = fPeakT - 15;//10.;//fXAtPeak - 10.; 
     
+		//Changed as fXAtPeak was not reading correctly
+		//Think Might be negpulsepol not working properly
     if(Run >= 70)
       fPreMin = fPeakT -25;//fXAtPeak - 25.;
 
