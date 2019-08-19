@@ -6,6 +6,7 @@
 #include "TBranch.h"
 #include "TLatex.h"
 #include "TROOT.h"
+#include <TSpectrum.h>
 
 #include <stdlib.h>
 
@@ -1093,7 +1094,7 @@ int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
 
 int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			       float peakMean = 65.){
-  
+  cout<<"Entered Rise/Fall"<<endl;
 	//Dual Perpose for dark rate/count
 	int nSignals = 0;
 	
@@ -1173,7 +1174,9 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			//cout<<" On Entry:          "<<entry<<endl;
     //get histogram of waveform
     Get_hWave(entry,hWave);
-   		
+   	
+		int TestSpec = hWave->GetNPeaks();
+			
     maxADC = hWave->GetMaximum();
     minADC = hWave->GetMinimum();
 		
@@ -1416,6 +1419,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 	sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",Run,entry,Test);
       can->SaveAs(OutFile);
     }
+		cout<<" Number of Peaks: "<< TestSpec<<endl;
     //cout<<" Baseline :"<<Params[0]<<endl;
     //cout<<" Constant :"<<Params[1]<<endl;
     //cout<<" Mean     :"<<Params[2]<<endl;
