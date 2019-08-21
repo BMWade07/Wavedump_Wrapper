@@ -1032,9 +1032,19 @@ void PMTAnalyser::SetStyle(){
 
 // Author: Ben Wade
 // s1520134@ed.ac.uk
-//
+//Method usign TSpectrum to find and verify the number of peaks
+//in a waveform
+int PMTAnalyser::nPeakFinder(TH1F * hWave){
+	
+	TSpectrum *sWave = new TSpecrum(4);
+	int nPeaks = sWave->Search(hWave, 2, "", 0.3);
+	cout<<" Number of Peaks? "<<nPeaks<<endl;
+	return nPeaks;
+}
+
+
+
 //A Quick baseline for initial discriminations
-//NOT IN USE
 Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
 	
 	if(fabs(PeakADC-30) < 10){
@@ -1048,6 +1058,7 @@ Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
 	}
 }
 //Hopefully a quick way to find the sigma of a peak
+//NOT IN USE
 Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
 	
 	Short_t LeadBin, TrailBin;
@@ -1290,6 +1301,8 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			continue;
 		}
 		
+		int nPeaks = nPeakFinder(hWave);
+
     //Finding the peak coordinates
     Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
     Double_t FitPeakT   = fWave->GetParameter(2);
