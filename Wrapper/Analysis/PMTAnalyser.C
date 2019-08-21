@@ -1038,7 +1038,8 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave){
 	
 	TSpectrum * sWave = new TSpectrum(10);
 	int nPeaks = sWave->Search(hWave, 2, "", -0.3);
-	cout<<" Number of Peaks? "<<nPeaks<<endl;
+	Double_t * xPeaks = sWave->GetPositionX();
+	cout<<" Number of Peaks? "<<xPeaks<<endl;
 	return nPeaks;
 }
 
