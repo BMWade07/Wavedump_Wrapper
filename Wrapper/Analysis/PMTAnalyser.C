@@ -6,7 +6,7 @@
 #include "TBranch.h"
 #include "TLatex.h"
 #include "TROOT.h"
-#include <TSpectrum.h>
+#include "TSpectrum.h"
 
 #include <stdlib.h>
 
@@ -1036,7 +1036,7 @@ void PMTAnalyser::SetStyle(){
 //in a waveform
 int PMTAnalyser::nPeakFinder(TH1F * hWave){
 	
-	TSpectrum *sWave = new TSpecrum(4);
+	TSpectrum * sWave = new TSpectrum(4);
 	int nPeaks = sWave->Search(hWave, 2, "", 0.3);
 	cout<<" Number of Peaks? "<<nPeaks<<endl;
 	return nPeaks;
@@ -1186,7 +1186,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     //get histogram of waveform
     Get_hWave(entry,hWave);
    	
-		int TestSpec = hWave->GetNPeaks();
+	//	int TestSpec = hWave->GetNPeaks();
 			
     maxADC = hWave->GetMaximum();
     minADC = hWave->GetMinimum();
@@ -1432,7 +1432,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 	sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",Run,entry,Test);
       can->SaveAs(OutFile);
     }
-		cout<<" Number of Peaks: "<< TestSpec<<endl;
+		//cout<<" Number of Peaks: "<< TestSpec<<endl;
     //cout<<" Baseline :"<<Params[0]<<endl;
     //cout<<" Constant :"<<Params[1]<<endl;
     //cout<<" Mean     :"<<Params[2]<<endl;

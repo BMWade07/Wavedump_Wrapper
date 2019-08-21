@@ -66,8 +66,8 @@ INCLUDES      = $(ROOTCFLAGS)
 
 CXXFLAGS     += $(INCLUDES)
 LDFLAGS      += $(ROOTLDFLAGS)
-LIBS         += $(ROOTLIBS) $(SYSLIBS)  
-GLIBS        += $(ROOTGLIBS) $(SYSLIBS)
+LIBS         += $(ROOTLIBS) $(SYSLIBS) 
+GLIBS        += $(ROOTGLIBS) $(SYSLIBS) -lSpectrum
 
 MAKEDEPEND    = gcc
 
