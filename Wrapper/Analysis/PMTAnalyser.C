@@ -1035,48 +1035,68 @@ void PMTAnalyser::SetStyle(){
 // s1520134@ed.ac.uk
 //Method usign TSpectrum to find and verify the number of peaks
 //in a waveform
-int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t PrePeak){
-	
-	//Rounding by bin, hence /2
-	//Setting range for finding peaks
-	//hWave->GetXaxis()->SetRange(round(PrePeak/2), 110);
-	
-	//TH1F * ClonehWave = (TH1F*)hWave->Clone("ClonehWave");
-	hWave->Scale(-1, "nosw2");
+int PMTAnalyser::ArrayCounter(int array[], int elements, int Object){
+
+	int Tally;
+	for(i = 0; i<elements; i++){
+		if(array[i] == Object)
+			Tally++;
+		}
+	return Tally
+}
+
+
+int PMTAnalyser::nPeakFinder(TH1F * hWave, Short_t Base){//, Double_t PrePeak){
+		
+	//hWave->Scale(-1, "nosw2");
 	//Inverts the histogram to find the peak while ignoring the statistics of the
 	//Histogram bins etc
 
-	TSpectrum * sWave = new TSpectrum(10);
-	int nPeaks = sWave->Search(hWave,1,"",0.3);//ClonehWave, 2, "", 0.3);
+	TSpectrum * sWave = new TSpectrum(5);
+	int nPeaks = sWave->Search(hWave,1,"",0.35);//ClonehWave, 2, "", 0.3);
 
 	Double_t * xPeaks = sWave->GetPositionX();
 	Double_t * yPeaks = sWave->GetPositionY();
 	
-	for(int i = 0; i < 10; i++){
+	for(int i = 1; i < 5; i++){
 		//Looping to invert the fitted peaks to normal
-		yPeaks[i] = -1*(yPeaks[i]);
-		cout<<xPeaks[i]<<" "<<yPeaks[i]<<endl;	
-	}
+		//Sorting the peaks
+		if(fabs(0.9*Base + 0.1*yPeaks[0] - yPeaks[i])>0)
+			xPeaks[i] = -1;
+			
+		else if(xPeaks[i]-xPeaks[0] < 0)
+			xPeaks[i] = -1;	
+			
+		else if(fabs(hWave->Integral(xPeak[i]-20, xPeak[i]+20)-Base*40)-Base*0.1 < 0)
+			xPeaks[i] = -1;
+ 
+	}	
+	return xPeaks;
+
+
+	//	cout<<xPeaks[i]<<" "<<yPeaks[i]<<endl;	
+	//}
 	
-	hWave->Scale(-1, "nosw2");
+	//hWave->Scale(-1, "nosw2");
 	//Flips the signal back to normal
 	
 	//hWave->GetXaxis()->SetRange(0,110);
-	TGraph * dPeaks = new TGraph(10, xPeaks, yPeaks);
-	dPeaks->SetMarkerStyle(22);
-	dPeaks->SetMarkerColor(2);
-	dPeaks->SetMarkerSize(2);
-	dPeaks->Draw("SAME P");
+	//TGraph * dPeaks = new TGraph(10, xPeaks, yPeaks);
+	//dPeaks->SetMarkerStyle(22);
+	//dPeaks->SetMarkerColor(2);
+	//dPeaks->SetMarkerSize(2);
+	//dPeaks->Draw("SAME P");
 	
-	return nPeaks;
-}
+	//return nPeaks;
+//	return 
+//}
 
 
 
 //A Quick baseline for initial discriminations
-Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakADC){
+Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakT){
 	
-	if(fabs(PeakADC-30) < 10){
+	if(fabs(PeakT-60) < 20){
 		//Checking there is space for a 5 bin average
 		//if not then integrating the last 5 bins
 		return hWave->Integral(100,110)/10; //AKA:150 ns->160 ns
@@ -1111,7 +1131,7 @@ Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
 int PMTAnalyser::Discriminator(double_t WaveIntegral,double_t BaseLine){
 	
 	Double_t QuarterPE = 100.0;
-	Double_t IntegratedCharge = (BaseLine - WaveIntegral)*mVPerBin;
+	Double_t IntegratedCharge = (WaveIntegral - BaseLine)*mVPerBin;
 	
 //	cout<<"mVPerBin          = "<<mVPerBin<<endl;
 //	cout<<"BaseLine          = "<<BaseLine<<endl;
@@ -1226,22 +1246,32 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     else
       baseline = Get_baseline_ADC(1,entry);
     
-		Short_t crudebaseline = CrudeBaseline(hWave, peakADC);   		 
-		//Short_t crudesigma = CrudeSigma(hWave, crudebaseline-0.5*peakADC);
+		Short_t crudebaseline = CrudeBaseline(hWave, peakT);   		 
+		
 		//Checking the size of the hWave to speed up the process
-		if(Discriminator((hWave->Integral(0.0, 110.0))*2, 
-				crudebaseline*220) == 0){
-			entry++;
-			//nPulses++;
+		//Set inside the negative if so the integrals are the right way
+		//Need to check the Baseline settings for effective use^
+    if(negPulsePol){      
+      
+			if(Discriminator(-hWave->Integral(0.0, 110.0)*2, 
+				-crudebaseline*2*110) == 0){
+				entry++;
+			
 			continue;
 			}
-		//Need to check the Baseline settings for effective use^
-
-    if(negPulsePol){      
-      peakADC  = hWave->GetMinimum();
+			
+			peakADC  = hWave->GetMinimum();
       floorADC = hWave->GetMaximum();
     }
     else{
+			
+			if(Discriminator(hWave->Integral(0.0, 110.0)*2, 
+				crudebaseline*2*110) == 0){
+				entry++;
+			
+			continue;
+			}
+			
       peakADC  = hWave->GetMaximum();
       floorADC = hWave->GetMinimum();
     }
@@ -1284,8 +1314,32 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     // end of vitos
     // pulse has been selected
 
-    //nPulses++;    
     entry++;
+		
+		//Inverting a negative signal so the peaks can be found
+		if(negPulsePol){
+			hWave->Scale(-1, "nosw2");
+			crudebaseline = -crudebaseline;
+			}
+			
+		//Identifying peaks in the histogram waveform
+		//So the correct number of peaks can be fit
+		int nPeaks[5] = nPeakFinder(hWave, crudebaseline);//, fWave->GetParameter(2)-10);	
+		//TSpectrum * sWave = new TSpectrum(5);
+		//int nPeaks = sWave->Search(hWave,1,"",0.35);
+		int xPeaks[5 - ArrayCounter(nPeaks, 5, -1)];
+		
+		
+		//Flipping it back
+		if(negPulsePol){
+			hWave->Scale(-1, "nosw2");
+			crudebaseline = -crudebaseline;
+			
+			for(int i = 0; i < 5; i++){
+				
+				}
+			}
+		
 		
     //cout << endl;
     //cout << " Fitting pulse number " << nPulses <<"."<< entry <<   endl;
@@ -1328,13 +1382,11 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 		
 		//Second Check for dark counts to ensure a good fit?
 		if (Discriminator(fWave->IntegralFast(220, x, w, 0.0, 220.0), 
-				fWave->GetParameter(0))){
-			//entry++;
+				(fWave->GetParameter(0)*2*110)) == 0){
+			entry++;
 			continue;
 		}
 		
-		int nPeaks = nPeakFinder(hWave, fWave->GetParameter(2)-10);
-
     //Finding the peak coordinates
     Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
     Double_t FitPeakT   = fWave->GetParameter(2);
