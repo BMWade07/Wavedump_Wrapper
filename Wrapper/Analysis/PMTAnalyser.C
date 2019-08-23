@@ -7,6 +7,7 @@
 #include "TLatex.h"
 #include "TROOT.h"
 #include "TSpectrum.h"
+#include "TGraph.h"
 
 #include <stdlib.h>
 
@@ -1034,16 +1035,39 @@ void PMTAnalyser::SetStyle(){
 // s1520134@ed.ac.uk
 //Method usign TSpectrum to find and verify the number of peaks
 //in a waveform
-int PMTAnalyser::nPeakFinder(TH1F * hWave){
+int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t PrePeak){
 	
+	//Rounding by bin, hence /2
+	//Setting range for finding peaks
+	//hWave->GetXaxis()->SetRange(round(PrePeak/2), 110);
+	
+	//TH1F * ClonehWave = (TH1F*)hWave->Clone("ClonehWave");
+	hWave->Scale(-1, "nosw2");
+	//Inverts the histogram to find the peak while ignoring the statistics of the
+	//Histogram bins etc
+
 	TSpectrum * sWave = new TSpectrum(10);
-	int nPeaks = sWave->Search(hWave, 2, "", -0.3);
+	int nPeaks = sWave->Search(hWave,1,"",0.3);//ClonehWave, 2, "", 0.3);
+
 	Double_t * xPeaks = sWave->GetPositionX();
-	cout<<" Number of Peaks? "<<xPeaks[0]<<endl;
-	cout<<"                  "<<xPeaks[1]<<endl;
-	cout<<"                  "<<xPeaks[2]<<endl;
-	cout<<"                  "<<xPeaks[3]<<endl;
-	cout<<"                  "<<xPeaks[4]<<endl;
+	Double_t * yPeaks = sWave->GetPositionY();
+	
+	for(int i = 0; i < 10; i++){
+		//Looping to invert the fitted peaks to normal
+		yPeaks[i] = -1*(yPeaks[i]);
+		cout<<xPeaks[i]<<" "<<yPeaks[i]<<endl;	
+	}
+	
+	hWave->Scale(-1, "nosw2");
+	//Flips the signal back to normal
+	
+	//hWave->GetXaxis()->SetRange(0,110);
+	TGraph * dPeaks = new TGraph(10, xPeaks, yPeaks);
+	dPeaks->SetMarkerStyle(22);
+	dPeaks->SetMarkerColor(2);
+	dPeaks->SetMarkerSize(2);
+	dPeaks->Draw("SAME P");
+	
 	return nPeaks;
 }
 
@@ -1266,24 +1290,27 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
     //cout << endl;
     //cout << " Fitting pulse number " << nPulses <<"."<< entry <<   endl;
 	
-    // Base, Const, Mean, Sigma, Alpha, N
+    // Base, Const (Basline to peak), Mean, Sigma, Alpha, N
     fWave->SetParameters(crudebaseline, 
-				crudebaseline-peakADC, peakT, 10, -10, 10);//floorADC,10,peakT,10,-10,10);
+				crudebaseline-peakADC, peakT, 1, -1, 10);//floorADC,10,peakT,10,-10,10);
     
 	  //if(Run >= 70)
       //fWave->SetParLimits(1, 0, 10000);
     //else
     	//fWave->SetParLimits(1, 0, 1000);
     fWave->SetParLimits(1, 0, 100000);
+		fWave->SetParLimits(3, 0, 5);
 		
     fWave->SetParLimits(2, 0, waveformDuration);
-    fWave->SetParLimits(4, -50, 0);
+    fWave->SetParLimits(4, -5, 0);
     
     hWave->Draw();
-    fWave->SetLineWidth(2);
+    
+		fWave->SetLineWidth(2);
     hWave->Fit("fWave", "QR"); 
-		//Double_t Params[6];
-		//fWave->GetParameters(&Params[0]);
+		
+		Double_t Params[6];
+		fWave->GetParameters(&Params[0]);
 		
 //     if(Run == 70 )
 //       hWave->GetXaxis()->SetRange(0,waveformDuration*1./3);
@@ -1306,7 +1333,7 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 			continue;
 		}
 		
-		int nPeaks = nPeakFinder(hWave);
+		int nPeaks = nPeakFinder(hWave, fWave->GetParameter(2)-10);
 
     //Finding the peak coordinates
     Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
@@ -1438,12 +1465,12 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
       can->SaveAs(OutFile);
     }
 		//cout<<" Number of Peaks: "<< TestSpec<<endl;
-    //cout<<" Baseline :"<<Params[0]<<endl;
-    //cout<<" Constant :"<<Params[1]<<endl;
-    //cout<<" Mean     :"<<Params[2]<<endl;
-    //cout<<" Sigma    :"<<Params[3]<<endl;
-    //cout<<" Alpha    :"<<Params[4]<<endl;
-    //cout<<" N        :"<<Params[5]<<endl;
+    cout<<" Baseline :"<<Params[0]<<" "<<crudebaseline<<endl;
+    cout<<" Constant :"<<Params[1]<<" "<<crudebaseline-peakADC<<endl;
+    cout<<" Mean     :"<<Params[2]<<endl;
+    cout<<" Sigma    :"<<Params[3]<<endl;
+    cout<<" Alpha    :"<<Params[4]<<endl;
+    cout<<" N        :"<<Params[5]<<endl;
 
 		nSignals++; //For darkcounts maybe
 	
