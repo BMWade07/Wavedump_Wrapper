@@ -1035,44 +1035,53 @@ void PMTAnalyser::SetStyle(){
 // s1520134@ed.ac.uk
 //Method usign TSpectrum to find and verify the number of peaks
 //in a waveform
-int PMTAnalyser::ArrayCounter(int array[], int elements, int Object){
+int PMTAnalyser::ArrayCounter(Double_t array[5], int elements, int Object){
 
 	int Tally;
-	for(i = 0; i<elements; i++){
+	for(int i = 0; i<elements; i++){
 		if(array[i] == Object)
 			Tally++;
 		}
-	return Tally
+	return Tally;
 }
 
-
-int PMTAnalyser::nPeakFinder(TH1F * hWave, Short_t Base){//, Double_t PrePeak){
+//Takes a histogram and a baseline, finds how many possible peaks 
+//verifys this and returns an array of 5 peaks in order with any null peaks 
+//returning -1
+Double_t PMTAnalyser::nPeakFinder(TH1F * hWave, Short_t Base){//, Double_t PrePeak){
 		
 	//hWave->Scale(-1, "nosw2");
 	//Inverts the histogram to find the peak while ignoring the statistics of the
 	//Histogram bins etc
 
 	TSpectrum * sWave = new TSpectrum(5);
-	int nPeaks = sWave->Search(hWave,1,"",0.35);//ClonehWave, 2, "", 0.3);
+	//int nPeaks = 
+	sWave->Search(hWave,1,"",0.35);//ClonehWave, 2, "", 0.3);
 
+	int PeakNum = 1;
 	Double_t * xPeaks = sWave->GetPositionX();
 	Double_t * yPeaks = sWave->GetPositionY();
+	
+	Double_t nPeaks[5] = {xPeaks[0], -1, -1, -1, -1};
 	
 	for(int i = 1; i < 5; i++){
 		//Looping to invert the fitted peaks to normal
 		//Sorting the peaks
 		if(fabs(0.9*Base + 0.1*yPeaks[0] - yPeaks[i])>0)
-			xPeaks[i] = -1;
+			continue;
 			
 		else if(xPeaks[i]-xPeaks[0] < 0)
-			xPeaks[i] = -1;	
-			
-		else if(fabs(hWave->Integral(xPeak[i]-20, xPeak[i]+20)-Base*40)-Base*0.1 < 0)
-			xPeaks[i] = -1;
- 
+			continue;
+						
+		else if(fabs(hWave->Integral(xPeaks[i]-20, xPeaks[i]+20)-Base*40)-Base*0.1 < 0)
+			continue;
+		
+		nPeaks[PeakNum] = xPeaks[i];
+		PeakNum++;
 	}	
-	return xPeaks;
-
+	
+	return * nPeaks;
+	}
 
 	//	cout<<xPeaks[i]<<" "<<yPeaks[i]<<endl;	
 	//}
@@ -1081,12 +1090,6 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Short_t Base){//, Double_t PrePeak){
 	//Flips the signal back to normal
 	
 	//hWave->GetXaxis()->SetRange(0,110);
-	//TGraph * dPeaks = new TGraph(10, xPeaks, yPeaks);
-	//dPeaks->SetMarkerStyle(22);
-	//dPeaks->SetMarkerColor(2);
-	//dPeaks->SetMarkerSize(2);
-	//dPeaks->Draw("SAME P");
-	
 	//return nPeaks;
 //	return 
 //}
@@ -1100,7 +1103,7 @@ Short_t PMTAnalyser::CrudeBaseline(TH1F * hWave, int PeakT){
 		//Checking there is space for a 5 bin average
 		//if not then integrating the last 5 bins
 		return hWave->Integral(100,110)/10; //AKA:150 ns->160 ns
-	}
+		}
 	else{
 		//integrate the first 5 bins
 		return hWave->Integral(0, 10)/10;
@@ -1230,141 +1233,155 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 		
 		//opening the floodgates
 		while(entry < nentries){
-		//if(entry%1000==0)
-			//cout<<" On Entry:          "<<entry<<endl;
-    //get histogram of waveform
-    Get_hWave(entry,hWave);
+			//if(entry%1000==0)
+				//cout<<" On Entry:          "<<entry<<endl;
+    	//get histogram of waveform
+    	Get_hWave(entry,hWave);
    	
-	//	int TestSpec = hWave->GetNPeaks();
+		//	int TestSpec = hWave->GetNPeaks();
 			
-    maxADC = hWave->GetMaximum();
-    minADC = hWave->GetMinimum();
+    	maxADC = hWave->GetMaximum();
+    	minADC = hWave->GetMinimum();
 		
-    // use full waveform to calculate baseline
-    if( Run >= 70 )
-      baseline = Get_baseline_ADC(0,entry);
-    else
-      baseline = Get_baseline_ADC(1,entry);
+    	// use full waveform to calculate baseline
+    	if( Run >= 70 )
+      	baseline = Get_baseline_ADC(0,entry);
+    	else
+      	baseline = Get_baseline_ADC(1,entry);
     
-		Short_t crudebaseline = CrudeBaseline(hWave, peakT);   		 
+			Short_t crudebaseline = CrudeBaseline(hWave, peakT);   		 
 		
-		//Checking the size of the hWave to speed up the process
-		//Set inside the negative if so the integrals are the right way
-		//Need to check the Baseline settings for effective use^
-    if(negPulsePol){      
+			//Checking the size of the hWave to speed up the process
+			//Set inside the negative if so the integrals are the right way
+			//Need to check the Baseline settings for effective use^
+    	if(negPulsePol){      
       
-			if(Discriminator(-hWave->Integral(0.0, 110.0)*2, 
-				-crudebaseline*2*110) == 0){
-				entry++;
+				if(Discriminator(-hWave->Integral(0.0, 110.0)*2, 
+					-crudebaseline*2*110) == 0){
+					entry++;
 			
-			continue;
-			}
+				continue;
+				}
 			
-			peakADC  = hWave->GetMinimum();
-      floorADC = hWave->GetMaximum();
-    }
-    else{
-			
-			if(Discriminator(hWave->Integral(0.0, 110.0)*2, 
-				crudebaseline*2*110) == 0){
-				entry++;
-			
-			continue;
-			}
-			
-      peakADC  = hWave->GetMaximum();
-      floorADC = hWave->GetMinimum();
-    }
-    
-    // vito pulses with ringing above threshold 
-    if( TMath::Abs( floorADC - baseline )*mVPerBin > thresh_mV_low ){
-     	entry++;
-			continue;
+				peakADC  = hWave->GetMinimum();
+      	floorADC = hWave->GetMaximum();
     	}
+    	else{
+			
+				if(Discriminator(hWave->Integral(0.0, 110.0)*2, 
+					crudebaseline*2*110) == 0){
+					entry++;
+				
+				continue;
+				}
+			
+      	peakADC  = hWave->GetMaximum();
+      	floorADC = hWave->GetMinimum();
+    	}
+    
+    	// vito pulses with ringing above threshold 
+    	if( TMath::Abs( floorADC - baseline )*mVPerBin > thresh_mV_low ){
+     		entry++;
+				continue;
+    		}
 //     cout << endl;
 //     cout << " Passes pulse vito " <<  endl;
     
-    pulseRange_mV = TMath::Abs(peakADC - baseline)*mVPerBin;
+    	pulseRange_mV = TMath::Abs(peakADC - baseline)*mVPerBin;
     
-    // pulse amplitude range
-    if(pulseRange_mV  < thresh_mV_low ||
-       pulseRange_mV  > thresh_mV_high ){
-      entry++;
-			continue;
-    	}
+    	// pulse amplitude range
+    	if(pulseRange_mV  < thresh_mV_low ||
+      	pulseRange_mV  > thresh_mV_high ){
+      	entry++;
+				continue;
+    		}
 //     cout << endl;
 //     cout << " Passes range vito " <<  endl;
     
-    if(negPulsePol)
-      peakT = hWave->GetBinCenter(hWave->GetMinimumBin());
-    else 
-      peakT = hWave->GetBinCenter(hWave->GetMaximumBin());
+    	if(negPulsePol)
+      	peakT = hWave->GetBinCenter(hWave->GetMinimumBin());
+    	else 
+      	peakT = hWave->GetBinCenter(hWave->GetMaximumBin());
     
     // insist on pulse being synched with LED trigger
     // +/- one sigma acceptance
     // Not Applied to Dark Count data
-    if( TMath::Abs(peakT - peakMean) > 8. &&
-	Test !='D' ){
-			entry++;
-      continue;
-    	}
+    	if( TMath::Abs(peakT - peakMean) > 8. &&
+		Test !='D' ){
+				entry++;
+      	continue;
+    		}
 //     cout << endl;
 //     cout << " Passes timing vito " << endl;
 
     // end of vitos
     // pulse has been selected
 
-    entry++;
+    	entry++;
 		
 		//Inverting a negative signal so the peaks can be found
-		if(negPulsePol){
-			hWave->Scale(-1, "nosw2");
-			crudebaseline = -crudebaseline;
-			}
-			
+			if(negPulsePol){
+				hWave->Scale(-1, "nosw2");
+				crudebaseline = -crudebaseline;
+				}
+		
+		////////////////////////////////////////////////////////////////////////////////
 		//Identifying peaks in the histogram waveform
 		//So the correct number of peaks can be fit
-		int nPeaks[5] = nPeakFinder(hWave, crudebaseline);//, fWave->GetParameter(2)-10);	
+			Double_t nPeaks[5] = {nPeakFinder(hWave, 
+					crudebaseline)};//, fWave->GetParameter(2)-10);	
 		//TSpectrum * sWave = new TSpectrum(5);
 		//int nPeaks = sWave->Search(hWave,1,"",0.35);
-		int xPeaks[5 - ArrayCounter(nPeaks, 5, -1)];
-		
+			int xPeaks[5 - ArrayCounter(nPeaks, 5, -1)];
+			int yPeaks[sizeof(xPeaks)];
 		
 		//Flipping it back
-		if(negPulsePol){
-			hWave->Scale(-1, "nosw2");
-			crudebaseline = -crudebaseline;
-			
-			for(int i = 0; i < 5; i++){
-				
+			if(negPulsePol){
+				hWave->Scale(-1, "nosw2");
+				crudebaseline = -crudebaseline;
 				}
-			}
 		
+		//Taking all the peaks found and setting their locations
+			for(int i=0; i < sizeof(xPeaks); i++){
+			
+				xPeaks[i] = nPeaks[i];
+				yPeaks[i] = hWave->GetBinContent(hWave->GetXaxis()->FindBin(xPeaks[i]));
 		
-    //cout << endl;
+				}
+    
+		//Placing the found peaks on the histogram
+			TGraph * dPeaks = new TGraph(10, xPeaks, yPeaks);
+			dPeaks->SetMarkerStyle(22);
+			dPeaks->SetMarkerColor(2);
+			dPeaks->SetMarkerSize(2);
+			dPeaks->Draw("SAME P");
+				
+		//cout << endl;
     //cout << " Fitting pulse number " << nPulses <<"."<< entry <<   endl;
 	
+		///////////////////////////////////////////////////////////////////////////
+		//Fitting the function to the Histogram
     // Base, Const (Basline to peak), Mean, Sigma, Alpha, N
-    fWave->SetParameters(crudebaseline, 
-				crudebaseline-peakADC, peakT, 1, -1, 10);//floorADC,10,peakT,10,-10,10);
+    	fWave->SetParameters(crudebaseline, 
+					crudebaseline-peakADC, peakT, 1, -1, 10);//floorADC,10,peakT,10,-10,10);
     
 	  //if(Run >= 70)
       //fWave->SetParLimits(1, 0, 10000);
     //else
     	//fWave->SetParLimits(1, 0, 1000);
-    fWave->SetParLimits(1, 0, 100000);
-		fWave->SetParLimits(3, 0, 5);
+    	fWave->SetParLimits(1, 0, 100000);
+			fWave->SetParLimits(3, 0, 5);
 		
-    fWave->SetParLimits(2, 0, waveformDuration);
-    fWave->SetParLimits(4, -5, 0);
+    	fWave->SetParLimits(2, 0, waveformDuration);
+    	fWave->SetParLimits(4, -5, 0);
     
-    hWave->Draw();
+    	hWave->Draw();
     
-		fWave->SetLineWidth(2);
-    hWave->Fit("fWave", "QR"); 
+			fWave->SetLineWidth(2);
+    	hWave->Fit("fWave", "QR"); 
 		
-		Double_t Params[6];
-		fWave->GetParameters(&Params[0]);
+			Double_t Params[6];
+			fWave->GetParameters(&Params[0]);
 		
 //     if(Run == 70 )
 //       hWave->GetXaxis()->SetRange(0,waveformDuration*1./3);
@@ -1373,79 +1390,80 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 
     // Determine rise and fall times
     // from function fit
-    float fPeak = 0., fFloor = 0., fPeakT = 0.;
+    	float fPeak = 0., fFloor = 0., fPeakT = 0.;
 		
 		//sorting the function integrals
-		double *x = new double[220];
-		double *w = new double[220];
-		fWave->CalcGaussLegendreSamplingPoints(220, x, w, 1e-15);
+			double *x = new double[220];
+			double *w = new double[220];
+			fWave->CalcGaussLegendreSamplingPoints(220, x, w, 1e-15);
 		
 		//Second Check for dark counts to ensure a good fit?
-		if (Discriminator(fWave->IntegralFast(220, x, w, 0.0, 220.0), 
-				(fWave->GetParameter(0)*2*110)) == 0){
-			entry++;
-			continue;
-		}
+			if (Discriminator(fWave->IntegralFast(220, x, w, 0.0, 220.0), 
+					(fWave->GetParameter(0)*2*110)) == 0){
+				entry++;
+				continue;
+			}
 		
     //Finding the peak coordinates
-    Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
-    Double_t FitPeakT   = fWave->GetParameter(2);
+    	Double_t FullHeight = fWave->GetMaximum()-fWave->GetMinimum();
+    	Double_t FitPeakT   = fWave->GetParameter(2);
 
     
-    if(negPulsePol){
-      fPeak  = fWave->GetMinimum(0,waveformDuration);
-      fFloor = fWave->GetMaximum(0,waveformDuration);
-			fPeakT = fWave->GetMinimumX();
-    }
-    else{
-      fPeak  = fWave->GetMaximum(0,waveformDuration);
-      fFloor = fWave->GetMinimum(0,waveformDuration);
-    	fPeakT = fWave->GetMaximumX();
-		}
+    	if(negPulsePol){
+      	fPeak  = fWave->GetMinimum(0,waveformDuration);
+      	fFloor = fWave->GetMaximum(0,waveformDuration);
+				fPeakT = fWave->GetMinimumX();
+    	}
+    	else{
+      	fPeak  = fWave->GetMaximum(0,waveformDuration);
+      	fFloor = fWave->GetMinimum(0,waveformDuration);
+    		fPeakT = fWave->GetMaximumX();
+			}	
     
     //float fPeakT = fWave->GetX(fPeak,0,waveformDuration);    
 
-    float fBase = fWave->GetParameter(0);
+    	float fBase = fWave->GetParameter(0);
     
-    float fFull = fBase;
-    float f090  = fBase;
-    float f010  = fBase;
+    	float fFull = fBase;
+    	float f090  = fBase;
+    	float f010  = fBase;
           
-    if(negPulsePol){
-      fFull = fBase - fPeak;
-      f090  -= 0.9*fFull;
-      f010  -= 0.1*fFull;
-    }
-    else{
-      fFull  = fPeak - fBase;
-      f090  += 0.9*fFull;
-      f010  += 0.1*fFull;
-    }
+    	if(negPulsePol){
+    	  fFull = fBase - fPeak;
+     		f090  -= 0.9*fFull;
+      	f010  -= 0.1*fFull;
+    	}
+    	else{
+      	fFull  = fPeak - fBase;
+      	f090  += 0.9*fFull;
+      	f010  += 0.1*fFull;
+    	}
     
     // range in X to search for y values 
-    float fXAtPeak = fWave->GetX(fPeak,0,waveformDuration);
-    float fPreMin  = fPeakT - 15;//10.;//fXAtPeak - 10.; 
+    	float fXAtPeak = fWave->GetX(fPeak,0,waveformDuration);
+    	float fPreMin  = fPeakT - 15;//10.;//fXAtPeak - 10.; 
     
 		//Changed as fXAtPeak was not reading correctly
 		//Think Might be negpulsepol not working properly
-    if(Run >= 70)
-      fPreMin = fPeakT -25;//fXAtPeak - 25.;
+    	if(Run >= 70)
+      	fPreMin = fPeakT -25;//fXAtPeak - 25.;
 
-    float fPostMin = fPeakT + 30;//25;//fXAtPeak + 25;
+    	float fPostMin = fPeakT + 30;//25;//fXAtPeak + 25;
     
-		cout<<" fPeak      = "<<fPeak<<endl;
-		cout<<" fPeakT     = "<<fPeakT<<endl;
-		cout<<" f010, f090 = "<<f010<<", "<<f090<<endl; 		
-		cout<<" fXAtPeak   = "<<fXAtPeak<<endl;
+			cout<<" nPeaks     = "<<sizeof(xPeaks)<<endl;
+			cout<<" fPeak      = "<<fPeak<<endl;
+			cout<<" fPeakT     = "<<fPeakT<<endl;
+			cout<<" f010, f090 = "<<f010<<", "<<f090<<endl; 		
+			cout<<" fXAtPeak   = "<<fXAtPeak<<endl;
 
-    float timeRise10 = fWave->GetX(f010,fPreMin,fPeakT);//fXAtPeak);
-    float timeRise90 = fWave->GetX(f090,fPreMin,fPeakT);//fXAtPeak);
+    	float timeRise10 = fWave->GetX(f010,fPreMin,fPeakT);//fXAtPeak);
+    	float timeRise90 = fWave->GetX(f090,fPreMin,fPeakT);//fXAtPeak);
     
-    float timeFall10 = fWave->GetX(f010,fPeakT, fPostMin);//fXAtPeak,fPostMin);
-    float timeFall90 = fWave->GetX(f090,fPeakT, fPostMin);//fXAtPeak,fPostMin);
+    	float timeFall10 = fWave->GetX(f010,fPeakT, fPostMin);//fXAtPeak,fPostMin);
+    	float timeFall90 = fWave->GetX(f090,fPeakT, fPostMin);//fXAtPeak,fPostMin);
     
-    float riseTime   = timeRise90 - timeRise10;
-    float fallTime   = timeFall10 - timeFall90;
+    	float riseTime   = timeRise90 - timeRise10;
+    	float fallTime   = timeFall10 - timeFall90;
     
 //     cout << endl;
 //     cout << " fPeak      = " << fPeak      << endl;
@@ -1464,88 +1482,90 @@ int PMTAnalyser::RiseFallTime(int totPulses = 10,
 //     cout << " riseTime   = " << riseTime   << endl;
 
     // save waveform fits
-    bool doPlot = true; 
-    int  oneIn = 1000; // one in #{oneIn} waveforms saved 
-    // plus always save the first one
-    if( (nPulses==1 || nPulses%(oneIn) == 0) && doPlot){
+    	bool doPlot = true; 
+    	int  oneIn = 1000; // one in #{oneIn} waveforms saved 
+    	// plus always save the first one
+    	if( (nPulses==1 || nPulses%(oneIn) == 0) && doPlot){
       
       // Horizontal lines
-      TLine * lBase = new TLine(0,fBase,waveformDuration,fBase);
-      lBase->SetLineColor(kBlue);
-      lBase->Draw();
+     		TLine * lBase = new TLine(0,fBase,waveformDuration,fBase);
+      	lBase->SetLineColor(kBlue);
+      	lBase->Draw();
 
-      TLine * l10 = new TLine(0,f010,waveformDuration,f010);
-      l10->SetLineColor(kGreen);
-      l10->Draw();
+      	TLine * l10 = new TLine(0,f010,waveformDuration,f010);
+      	l10->SetLineColor(kGreen);
+      	l10->Draw();
       
-      TLine * l90 = new TLine(0,f090,waveformDuration,f090);
-      l90->SetLineColor(kOrange);
-      l90->Draw();
+      	TLine * l90 = new TLine(0,f090,waveformDuration,f090);
+      	l90->SetLineColor(kOrange);
+      	l90->Draw();
       
-      TLine * lPeak = new TLine(0,fPeak,waveformDuration,fPeak);
-      lPeak->SetLineColor(kMagenta);
-      lPeak->Draw();
+      	TLine * lPeak = new TLine(0,fPeak,waveformDuration,fPeak);
+      	lPeak->SetLineColor(kMagenta);
+      	lPeak->Draw();
       
-      // Vertical lines
-      TLine * lRise10 = new TLine(timeRise10,fFloor,timeRise10,fPeak);
-      lRise10->SetLineColor(kRed);
-      lRise10->Draw();
+      	// Vertical lines
+      	TLine * lRise10 = new TLine(timeRise10,fFloor,timeRise10,fPeak);
+      	lRise10->SetLineColor(kRed);
+      	lRise10->Draw();
+      	
+      	TLine * lRise90 = new TLine(timeRise90,fFloor,timeRise90,fPeak);
+      	lRise90->SetLineColor(kRed);
+      	lRise90->Draw();
       
-      TLine * lRise90 = new TLine(timeRise90,fFloor,timeRise90,fPeak);
-      lRise90->SetLineColor(kRed);
-      lRise90->Draw();
+      	if( Run >= 70 ){
+					TLine * l100 = new TLine(fPeakT,fPeak,fPeakT,fPeak);
+					lRise90->SetLineColor(kMagenta);
+					lRise90->Draw();
+      	}
       
-      if( Run >= 70 ){
-	TLine * l100 = new TLine(fPeakT,fPeak,fPeakT,fPeak);
-	lRise90->SetLineColor(kMagenta);
-	lRise90->Draw();
-      }
-      
-      TLine * lFall90 = new TLine(timeFall90,fFloor,timeFall90,fPeak);
-      lFall90->SetLineColor(kBlue);
-      lFall90->Draw();
+      	TLine * lFall90 = new TLine(timeFall90,fFloor,timeFall90,fPeak);
+      	lFall90->SetLineColor(kBlue);
+      	lFall90->Draw();
 
-      TLine * lFall10 = new TLine(timeFall10,fFloor,timeFall10,fPeak);
-      lFall10->SetLineColor(kBlue);
-      lFall10->Draw();
+      	TLine * lFall10 = new TLine(timeFall10,fFloor,timeFall10,fPeak);
+      	lFall10->SetLineColor(kBlue);
+      	lFall10->Draw();
       
-      char OutFile[128];
-      if(Test=='G')
-	sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_HV_%d.png",Run,entry,HVStep);
-      else
-	sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",Run,entry,Test);
-      can->SaveAs(OutFile);
-    }
-		//cout<<" Number of Peaks: "<< TestSpec<<endl;
-    cout<<" Baseline :"<<Params[0]<<" "<<crudebaseline<<endl;
-    cout<<" Constant :"<<Params[1]<<" "<<crudebaseline-peakADC<<endl;
-    cout<<" Mean     :"<<Params[2]<<endl;
-    cout<<" Sigma    :"<<Params[3]<<endl;
-    cout<<" Alpha    :"<<Params[4]<<endl;
-    cout<<" N        :"<<Params[5]<<endl;
+      	char OutFile[128];
+      	if(Test=='G')
+					sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_HV_%d.png",
+							Run,entry,HVStep);
+      	else
+					sprintf(OutFile, "./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",Run,
+							entry,Test);
+      		can->SaveAs(OutFile);
+    		}
+			//cout<<" Number of Peaks: "<< TestSpec<<endl;
+   			cout<<" Baseline :"<<Params[0]<<" "<<crudebaseline<<endl;
+    		cout<<" Constant :"<<Params[1]<<" "<<crudebaseline-peakADC<<endl;
+    		cout<<" Mean     :"<<Params[2]<<endl;
+    		cout<<" Sigma    :"<<Params[3]<<endl;
+    		cout<<" Alpha    :"<<Params[4]<<endl;
+    		cout<<" N        :"<<Params[5]<<endl;
 
-		nSignals++; //For darkcounts maybe
+				nSignals++; //For darkcounts maybe
 	
-    Rise->Fill(riseTime);
-    Fall->Fill(fallTime);
-  	entry++;
-		}
-	nPulses++;	
-	}
+    		Rise->Fill(riseTime);
+    		Fall->Fill(fallTime);
+  			entry++;
+				}
+			nPulses++;	
+			}
   
-  hWave->Delete();   
+  	hWave->Delete();   
+  	
+  	Rise->Draw();
   
-  Rise->Draw();
-  
-  TString hName = FileID;
-  hName = hName + ".png";
+  	TString hName = FileID;
+  	hName = hName + ".png";
  
-  //Rise->Fit("gaus");
-  can->SaveAs("./RiseFall/Rise_" + hName);
+  	//Rise->Fit("gaus");
+  	can->SaveAs("./RiseFall/Rise_" + hName);
   
-  Fall->Draw();
-  //Fall->Fit("gaus");
-  can->SaveAs("./RiseFall/Fall_" + hName);
+  	Fall->Draw();
+  	//Fall->Fit("gaus");
+  	can->SaveAs("./RiseFall/Fall_" + hName);
 	
 	return nSignals;  
 }
