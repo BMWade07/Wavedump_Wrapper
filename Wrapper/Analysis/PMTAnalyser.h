@@ -101,11 +101,11 @@ class PMTAnalyser {
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
   int      RiseFallTime(int,float);
-  int	     Discriminator(double_t, double_t);
-  Short_t	 CrudeBaseline(TH1F *, int);
-  Short_t	 CrudeSigma(TH1F *, Short_t);
-  Double_t nPeakFinder(TH1F *, Short_t);	
-  int      ArrayCounter(Double_t*, int, int);
+  int	   Discriminator(double_t, double_t);
+  Short_t  CrudeBaseline(TH1F *, int);
+  Short_t  CrudeSigma(TH1F *, Short_t);
+  void     nPeakFinder(TH1F *, Short_t, int *);	
+  int     ArrayCounter(int *, int, int);
  private:
 
   Bool_t testMode;
