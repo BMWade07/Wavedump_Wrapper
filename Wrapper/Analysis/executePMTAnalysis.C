@@ -126,6 +126,7 @@ int main(Int_t argc, Char_t *argv[]){
   Bool_t investigateDarkRate = kFALSE;
   Bool_t investigateFFT      = kFALSE;
   Bool_t investigateAP       = kFALSE;
+	Bool_t investigateRiseFall = kFALSE;	
 
   Bool_t writeOutput         = kFALSE;
 
@@ -212,7 +213,7 @@ int main(Int_t argc, Char_t *argv[]){
 
     int nPulses = 100;
 
-    nIntegralDarks = PMT->RiseFallTime(nPulses,peakMean);
+    nIntegralDarks = PMT->RiseFallTime(nPulses,peakMean, investigateRiseFall);
 		
 		cout << " Dark Counts " << nIntegralDarks<< endl;
 		

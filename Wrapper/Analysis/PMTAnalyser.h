@@ -100,7 +100,7 @@ class PMTAnalyser {
   void     Show(Long64_t entry = -1);
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
-  int      RiseFallTime(int,float);
+  int      RiseFallTime(int,float,Bool_t);
   int	   Discriminator(double_t, double_t);
   Short_t  CrudeBaseline(TH1F *, int);
   Short_t  CrudeSigma(TH1F *, Short_t);
