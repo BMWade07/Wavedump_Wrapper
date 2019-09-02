@@ -45,6 +45,7 @@
 #include "PMTAnalyser.h"
 #include "ShippingData.h"
 #include "FileNameParser.h"
+#include "TGraph.h"
 
 using namespace std;
 
@@ -126,8 +127,8 @@ int main(Int_t argc, Char_t *argv[]){
   Bool_t investigateDarkRate = kFALSE;
   Bool_t investigateFFT      = kFALSE;
   Bool_t investigateAP       = kFALSE;
-	Bool_t investigateRiseFall = kFALSE;	
-
+  Bool_t investigateRiseFall = kFALSE;	
+  Bool_t investigateSpectrum = kTRUE;
   Bool_t writeOutput         = kFALSE;
 
   TFile * outFile = nullptr;  
@@ -173,7 +174,8 @@ int main(Int_t argc, Char_t *argv[]){
     // connect to tree in input file
     TString treeName = (TString)testInfo->GetTreeName(argv[iFile]);
     inFile->GetObject(treeName,tree); 
-    
+   
+		
     // initalise analysis object using tree 
     PMT = new PMTAnalyser(tree,
 			  digitiser);
@@ -183,7 +185,7 @@ int main(Int_t argc, Char_t *argv[]){
     
     // Limit to subset of entries for quicker testing
     //PMT->SetTestMode(kFALSE);
-    PMT->SetTestMode();
+    //PMT->SetTestMode();
      
     // Testing output 
     //PMT->MakeCalibratedTree();
@@ -208,14 +210,18 @@ int main(Int_t argc, Char_t *argv[]){
     //Rise/Fall Time Study
     
 
-		int nIntegralDarks = 0;
+		//int nIntegralDarks = 0;
     // number of pulses to fit 
 
-    int nPulses = 100;
-
-    nIntegralDarks = PMT->RiseFallTime(nPulses,peakMean, investigateRiseFall);
+    int totPulses = 1;//00;
+  
+    //cout << endl;
+	  //cout <<	" totPulses = " << totPulses << endl;	
+    int nSignals = PMT->WaveformHistogram(totPulses, peakMean, 
+		                          investigateRiseFall, 
+		                          investigateSpectrum);
 		
-		cout << " Dark Counts " << nIntegralDarks<< endl;
+		cout << " Valid Peaks = " << nSignals<< endl;
 		
 
     int event = 0;

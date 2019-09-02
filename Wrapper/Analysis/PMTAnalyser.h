@@ -7,6 +7,7 @@
 #include "TFile.h"
 
 #include "TH2.h"
+#include "TGraph.h"
 
 #include "DataInfo.h"
 #include "FileNameParser.h"
@@ -100,17 +101,25 @@ class PMTAnalyser {
   void     Show(Long64_t entry = -1);
   void     SetStyle();
   void     SetTestMode(Bool_t userTestMode = kTRUE);
-  int      RiseFallTime(int,float,Bool_t);
-  int	   Discriminator(double_t, double_t);
+  int      WaveformHistogram(int, float, 
+           Bool_t investigateRiseFall = kFALSE, 
+           Bool_t investigateSpectrum = kFALSE);
+  int	   Discriminator(Double_t, Double_t);
   Short_t  CrudeBaseline(TH1F *, int);
   Short_t  CrudeSigma(TH1F *, Short_t);
-  void     nPeakFinder(TH1F *, Short_t, int *);	
-  int     ArrayCounter(int *, int, int);
+  int      nPeakFinder(TH1F *, Double_t, TGraph *);	
+  int      ArrayCounter(Double_t*, int, int);
+  int      WaveformFit(TH1F *, TF1 *, int, 
+           float, bool investigatenPeaks=kFALSE);
+  void     RiseFall(TF1 *, TH1F *, TH1F *, 
+           bool SaveFigures=false);
+
  private:
 
   Bool_t testMode;
 
 };
+
 
 #endif
 
