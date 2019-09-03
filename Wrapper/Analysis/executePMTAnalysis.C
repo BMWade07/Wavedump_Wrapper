@@ -221,7 +221,7 @@ int main(Int_t argc, Char_t *argv[]){
 		                          investigateRiseFall, 
 		                          investigateSpectrum);
 		
-		cout << " Valid Peaks = " << nSignals<< endl;
+		//cout << " Valid Peaks = " << nSignals<< endl;
 		
 
     int event = 0;

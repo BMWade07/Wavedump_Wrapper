@@ -1456,8 +1456,8 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 	// save waveform fits
 	bool doPlot            = true ; 
 	int  oneIn             = 1000 ; // one in #{oneIn} waveforms saved 
-	bool investigatenPeaks = true ;
-	bool investigateFit    = true ;
+	bool investigatenPeaks = false;
+	bool investigateFit    = false;
 
 	cout << endl;
 	cout << " Entered Integration "                          << endl;
@@ -1490,15 +1490,15 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 
 	TH1F * Charge050ns = new TH1F("Charge1", 
 				 "Charge Spectrum;Charge (mVns);Counts", 
-				 100, 0.0, 150.0);
+				 250, 0.0, 1500.0);
 
 	TH1F * Charge100ns = new TH1F("Charge2", 
 				 "Charge Spectrum;Charge (mVns);Counts", 
-				 100, 0.0, 150.0);
+				 250, 0.0, 1500.0);
   
 	TH1F * Charge150ns = new TH1F("Charge3", 
 				 "Charge Spectrum;Charge (mVns);Counts", 
-				 100, 0.0, 150.0);
+				 250, 0.0, 1500.0);
 	
 	TH1F * hWave = new TH1F("hWave",
          "Waveform;Time (ns);voltage (ADC Counts)",
@@ -1565,12 +1565,12 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 		
 		//To look at the raw charge spectra of the hWaves
 		if(investigateSpectrum){
-			
-			Charge050ns->Fill((hWave->Integral( 0, 
+			//cout << (hWave->Integral(25, 50)*2*mVPerBin) << endl;
+			Charge050ns->Fill(52000-(hWave->Integral( 0, 
                        25)*2)*mVPerBin);
-			Charge100ns->Fill((hWave->Integral(25, 
+			Charge100ns->Fill(52000-(hWave->Integral(25, 
                        50)*2)*mVPerBin);
-			Charge150ns->Fill((hWave->Integral(50, 
+			Charge150ns->Fill(52000-(hWave->Integral(50, 
                        75)*2)*mVPerBin);
 			}
 		
@@ -1645,7 +1645,7 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 	
 	//Saving the unbias charge spectra
 	if(investigateSpectrum){
-		gPad->SetLogy();
+		//gPad->SetLogy();
 		
 	 	TString hName = FileID;
   	hName = hName + ".png";
