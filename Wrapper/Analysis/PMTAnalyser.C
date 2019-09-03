@@ -1075,10 +1075,12 @@ Short_t PMTAnalyser::CrudeSigma(TH1F * hWave, Short_t HalfLine){
 		
 	while(LeadBin == 0 || TrailBin == 0){ 
 		
-		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()-nBins)<0.0 && LeadBin == 0)
+		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()-nBins)<0.0 
+       && LeadBin == 0)
 			LeadBin = nBins;	
 		
-		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()+nBins)<0.0 && TrailBin == 0)
+		if(HalfLine-hWave->GetBinContent(hWave->GetMaximumBin()+nBins)<0.0 
+       && TrailBin == 0)
 			TrailBin = nBins;
 		nBins++;
 		}
@@ -1133,7 +1135,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 		//Sorting the peaks
 		//if the y peak is 0, there is no x peak
 		if(round(yPeaks[i])== 0){
-			//cout<<"Trigger 1"<<endl;
+			//cout << " Trigger 1 " << endl ;
 			xPeaks[i] = 0;
 			//FalsePeak++;
 			continue;
@@ -1142,7 +1144,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 		//checking the height of the peaks is more than 10% of 
 		//of the largest peak
 		else if(0.9*crudebaseline + 0.1*yPeaks[0] - yPeaks[i]>0){
-			//cout<<"Trigger 2"<<endl;
+			//cout << " Trigger 2 " << endl ;
 			xPeaks[i] = 0;
 			//FalsePeak++;
 			continue;
@@ -1151,7 +1153,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 		//Making sure the peak isn't before the pulsed peak
 		//Some do come before, not sure how to deal with them
 		else if(xPeaks[i]-xPeaks[0] < 0 && 1-yPeaks[i]/yPeaks[0] > 0.1){
-			//cout<<"Trigger 3"<<endl;
+			//cout << " Trigger 3 " << endl ;
 			xPeaks[i] = 0;
 			//FalsePeak++;
 			continue;
@@ -1161,17 +1163,21 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 		//Probably  wrong
 		else if(fabs(hWave->Integral(xPeaks[i]-20, 
 												xPeaks[i]+20)-crudebaseline*40)-crudebaseline*0.1 < 0){
+			//cout << " Trigger 4 " << endl ;
 			xPeaks[i] = 0;
 			continue;
 			}	
+	//cout << " PEAK! " << endl;
 	ValidPeaks++;	
 	}	
 	//Deleting the spectrum for space
 	sWave->Delete();	
 
 	//Hop out	if no peaks are found
-	if(ValidPeaks == 0)
+	if(ValidPeaks == 0){
+		//cout << " NO PEAKS FOUND " << endl;
 		return 0;
+		}
 
 	//Flipping it back
 	if(negPulsePol){
@@ -1180,9 +1186,12 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 		}
 		
 	//Taking all the peaks found and setting their locations
-	for(int i=0; i < ValidPeaks; i++)
-		dPeaks->SetPoint(i, xPeaks[i], yPeaks[i]);
-		
+	for(int i=0; i < ValidPeaks; i++){
+		if(negPulsePol)
+			dPeaks->SetPoint(i, xPeaks[i], -yPeaks[i]);
+		else
+			dPeaks->SetPoint(i, xPeaks[i],  yPeaks[i]);
+		}
 	//Placing the found peaks on the histogram
 	//TGraph * dPeaks = new TGraph(ValidPeaks, xPeaks, yPeaks);
 	dPeaks->SetMarkerStyle(22);
@@ -1341,8 +1350,8 @@ int PMTAnalyser::WaveformFit(TH1F * hWave, TF1 * fWave, int entry,
 		
 	if(Discriminator(hWave->Integral(0.0, 110.0)*2, 
 			crudebaseline*2*110) == 0)
-		return 0;
-		
+		return 0;		
+
 	TGraph * dPeaks = new TGraph();
 	
 	//So TSpectrum can be turned off
@@ -1352,8 +1361,9 @@ int PMTAnalyser::WaveformFit(TH1F * hWave, TF1 * fWave, int entry,
 		//Removing multipeak waveforms 
 		//for analysis later?
 		if( nPeaks > 1)
+			return nPeaks;			
+		else if(nPeaks == 0)
 			return 0;
-		//Maybe change the return number?  
 		}
 
 	if(negPulsePol){      			
@@ -1374,14 +1384,14 @@ int PMTAnalyser::WaveformFit(TH1F * hWave, TF1 * fWave, int entry,
   // vito pulses with ringing above threshold 
   if(TMath::Abs( floorADC - baseline )*mVPerBin > thresh_mV_low )
 		return 0;
-
+		
    // insist on pulse being synched with LED trigger
     // +/- one sigma acceptance
     // Not Applied to Dark Count data
   if( TMath::Abs(peakT - peakMean) > 8. &&
 			Test !='D' )
 		return 0;
-	
+
 	//Fitting the function to the Histogram
   // Base, Const (Basline to peak), Mean, Sigma, Alpha, N
   fWave->SetParameters(crudebaseline, 
@@ -1414,8 +1424,10 @@ int PMTAnalyser::WaveformFit(TH1F * hWave, TF1 * fWave, int entry,
                           fWave->GetParameter(2)+40), 
 			(fWave->GetParameter(0)*2*25)) == 0)
 		return 0;
-				
-	dPeaks->Draw("SAME P");				
+	
+
+	if(investigatenPeaks)			
+		dPeaks->Draw("SAME P");				
     
 //     		cout << " fPeak      = " << fPeak      << endl;
 //     		cout << " fBase      = " << fBase      << endl;
@@ -1444,9 +1456,8 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 	// save waveform fits
 	bool doPlot            = true ; 
 	int  oneIn             = 1000 ; // one in #{oneIn} waveforms saved 
-	bool SaveFigures       = false;
 	bool investigatenPeaks = true ;
-	bool investigateFit    = false;
+	bool investigateFit    = true ;
 
 	cout << endl;
 	cout << " Entered Integration "                          << endl;
@@ -1530,11 +1541,15 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 			cout << " entry     = " << entry      << endl ;
 			break ;
 			}
-
+		
+		//Used so only a single bool can be passed between functions
+		//change doPlot to stop the figures 
+		bool SaveFigures       = false; 
+	
 		//for saving the plots later
 		if(doPlot && 
        (investigateFit||investigateRiseFall) && 
-       (entry==1||entry%(oneIn)==0))
+       (entry==1 || entry%(oneIn)==0))
 			SaveFigures = true;
 	
 		else
@@ -1542,7 +1557,7 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 	
 
 		//To Show progress of the program
-		if(entry%100000==0)
+		if(entry%1000000==0)
 			cout << " On Entry: " << entry << " of " << nentries << endl;
 		
 		//Retrieving the waveform
@@ -1561,36 +1576,56 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 		
 		//Getting the waveform fit and adding the number of fit peaks
 		//to nSignals for use later?
-		if(investigateFit||investigateRiseFall)
-			nSignals = nSignals + WaveformFit(hWave, fWave, entry, 
-                            peakMean, investigatenPeaks) ;
-		
+		if(investigateFit || investigateRiseFall || investigatenPeaks){
+			
+			//finding number of signals per histogram
+			int hSignals = WaveformFit(hWave, fWave, entry, peakMean,
+                                 investigatenPeaks) ;
+			
+			//if there is no signal, or more than one, it is added
+			//to the total, and the  rise/fall is skipped
+			if(hSignals == 0){
+				entry++;
+				continue;
+				}
+			else if(hSignals >= 5){
+				//Hopefully filtering out noise
+				entry++;
+				continue;
+				}
+			else if(hSignals > 1){
+				nSignals++;
+				entry++;
+				MultiSignals++;
+				continue;
+				}							
+			else
+				nSignals++;
+			}
+
 		//Only finding the rise/fall times if wanted
 		if(investigateRiseFall)
 			RiseFall(fWave, Rise, Fall, SaveFigures) ;		
 		
 		//To print out waveforms if desired
-		if(SaveFigures){		
-			
-			if(investigateFit){
+		if(SaveFigures && investigateFit){
 
-				// plus always save the first one
- 				char OutFile[128];
- 				if(Test=='G')
-					sprintf( OutFile, 
-  	  		"./WaveformFits/Waveform_Run_%d_entry_%lld_HV_%d.png",
-					Run, entry, HVStep);
+			// plus always save the first one
+ 			char OutFile[128];
+ 			if(Test=='G')
+				sprintf( OutFile, 
+  	  	"./WaveformFits/Waveform_Run_%d_entry_%lld_HV_%d.png",
+				Run, entry, HVStep);
     	
-				else
-					sprintf( OutFile, 
-					"./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",
-					Run, entry, Test);
+			else
+				sprintf( OutFile, 
+				"./WaveformFits/Waveform_Run_%d_entry_%lld_Test_%c.png",
+				Run, entry, Test);
   	
-				can->SaveAs(OutFile);
-				}	
+			can->SaveAs(OutFile);
+			}	
 	
-			}
-
+		entry++;
 		}
 	
 	//Print out the risefall time histgrams
@@ -1630,7 +1665,9 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 		can->SaveAs("Spectrum_" + hName);	
 	
 		}
-
+	
+	cout << " Wavefroms with signals          = " << nSignals     << endl;
+	cout << " Waveforms with multiple signals = " << MultiSignals << endl;
 	return nSignals;
 	
 	}	
