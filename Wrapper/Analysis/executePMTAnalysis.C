@@ -127,8 +127,8 @@ int main(Int_t argc, Char_t *argv[]){
   Bool_t investigateDarkRate = kFALSE;
   Bool_t investigateFFT      = kFALSE;
   Bool_t investigateAP       = kFALSE;
-  Bool_t investigateRiseFall = kFALSE;	
-  Bool_t investigateSpectrum = kTRUE;
+  Bool_t investigateRiseFall = kTRUE;	
+  Bool_t investigateSpectrum = kFALSE;
   Bool_t writeOutput         = kFALSE;
 
   TFile * outFile = nullptr;  

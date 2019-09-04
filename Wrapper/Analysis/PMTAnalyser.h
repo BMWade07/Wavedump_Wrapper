@@ -111,7 +111,7 @@ class PMTAnalyser {
   int      ArrayCounter(Double_t*, int, int);
   int      WaveformFit(TH1F *, TF1 *, int, 
            float, bool investigatenPeaks=kFALSE);
-  void     RiseFall(TF1 *, TH1F *, TH1F *, 
+  bool     RiseFall(TF1 *, TH1F *, TH1F *, 
            bool SaveFigures=false);
 
  private:

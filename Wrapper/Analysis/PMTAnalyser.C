@@ -1121,7 +1121,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 	TSpectrum * sWave = new TSpectrum(100);
 
 	//Find peaks, and puts them in height order?
-	Int_t nFound = sWave->Search(hWave,1,"",0.4);
+	Int_t nFound = sWave->Search(hWave,1,"",0.35);
 	
 	Double_t * xPeaks = sWave->GetPositionX();
 	Double_t * yPeaks = sWave->GetPositionY();
@@ -1130,7 +1130,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 
 	//Looping over 10 possible peaks and validating
 	//if there is an invalid peak, the value is set to 0
-	for(int i = 1; i < 10; i++){
+	for(int i = 0; i < 10; i++){
 			
 		//Sorting the peaks
 		//if the y peak is 0, there is no x peak
@@ -1143,7 +1143,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 
 		//checking the height of the peaks is more than 10% of 
 		//of the largest peak
-		else if(0.9*crudebaseline + 0.1*yPeaks[0] - yPeaks[i]>0){
+		else if(0.9*crudebaseline - 0.1*yPeaks[0] + yPeaks[i]>0){
 			//cout << " Trigger 2 " << endl ;
 			xPeaks[i] = 0;
 			//FalsePeak++;
@@ -1168,6 +1168,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 			continue;
 			}	
 	//cout << " PEAK! " << endl;
+	xPeaks[ValidPeaks] = xPeaks[i];
 	ValidPeaks++;	
 	}	
 	//Deleting the spectrum for space
@@ -1202,7 +1203,7 @@ int PMTAnalyser::nPeakFinder(TH1F * hWave, Double_t crudebaseline, TGraph * dPea
 }
 
 //Using the crystyalball fit to find the rise and fall time of a signal pulse
-void PMTAnalyser::RiseFall(TF1 * fWave, TH1F * Rise, TH1F * Fall, bool SaveFigures){
+bool PMTAnalyser::RiseFall(TF1 * fWave, TH1F * Rise, TH1F * Fall, bool SaveFigures){
 	
 	// Determine rise and fall times
   // from function fit
@@ -1239,16 +1240,15 @@ void PMTAnalyser::RiseFall(TF1 * fWave, TH1F * Rise, TH1F * Fall, bool SaveFigur
     		
 	//range in X to search for y values 
   //float fXAtPeak = fWave->GetX(fPeak,0,waveformDuration);
-  float fPreMin  = fPeakT - 15;//10.;//fXAtPeak - 10.; 
+  float fPreMin  = fPeakT - 15;//- 10.; //fXAtPeak - 10.; 
     		
 	//Changed as fXAtPeak was not reading correctly
 	//Think Might be negpulsepol not working properly
   if(Run >= 70)
-		fPreMin = fPeakT -25;//fXAtPeak - 25.;
+		fPreMin = fPeakT -25; //fXAtPeak - 25.;
 
-  float fPostMin = fPeakT + 50;//25;//fXAtPeak + 25;
+  float fPostMin = fPeakT + 25; //fXAtPeak + 25;
     
-//	cout << " nPeaks     = " << 10-ArrayCounter(xPeaks, 10, 0) << endl ;
 //	cout << " fPeak      = " << fPeak                          << endl ;
 //	cout << " fPeakT     = " << fPeakT                         << endl ;
 //	cout << " f010, f090 = " << f010 << ", " << f090           << endl ; 		
@@ -1257,15 +1257,37 @@ void PMTAnalyser::RiseFall(TF1 * fWave, TH1F * Rise, TH1F * Fall, bool SaveFigur
   float timeRise10 = fWave->GetX(f010,fPreMin,fPeakT);
   float timeRise90 = fWave->GetX(f090,fPreMin,fPeakT);
   		
-	//cout << " Number of Peaks " << 10-ArrayCounter(nPeaks, 10, -1) << endl ;
 	//cout << " f010 "            << f010                            << endl ;
 	//cout << " f090 "            << f090                            << endl ;
-	
-  float timeFall10 = fWave->GetX(f010,fPeakT, fPostMin);
-  float timeFall90 = fWave->GetX(f090,fPeakT, fPostMin);
 
+	//confirms if the 10% fall is within the waveform
+	//if not then it skips the calculation
+	//Maybe useful for analysis later
+  float fallTime   = 0. ;
+	float timeFall10 = 0. ;
+	float timeFall90 = 0. ;
+
+	if(fWave->Eval(219)>f010){
+  	timeFall10 = fWave->GetX(f010,fPeakT, 220);//fPostMin);
+  	timeFall90 = fWave->GetX(f090,fPeakT, 220);//fPostMin);
+		fallTime   = timeFall10 - timeFall90;
+		//cout << " timeFall10 = " << timeFall10 << endl ;
+		//cout << " timeFall90 = " << timeFall90 << endl ;
+		}
+	
+	if(isnan(timeFall10)||isnan(timeFall90)){
+		cout << " timeFall10 = " << timeFall10           << endl ;
+		cout << " timeFall90 = " << timeFall90           << endl ;
+		cout << " at 220 ns  = " << fWave->Eval(220)     << endl ;
+		cout << " fPeak      = " << fPeak                << endl ;
+		cout << " fPeakT     = " << fPeakT               << endl ;
+		cout << " f010, f090 = " << f010 << ", " << f090 << endl ;
+		return true ;				
+		}
+
+	//Should always be able to be found
   float riseTime   = timeRise90 - timeRise10;
-  float fallTime   = timeFall10 - timeFall90;
+ 
     			
 	if(SaveFigures){
       		
@@ -1300,18 +1322,27 @@ void PMTAnalyser::RiseFall(TF1 * fWave, TH1F * Rise, TH1F * Fall, bool SaveFigur
 			lRise90->SetLineColor(kMagenta);
 			lRise90->Draw();
       }
-      
-    TLine * lFall90 = new TLine(timeFall90,fFloor,timeFall90,fPeak);
-    lFall90->SetLineColor(kBlue);
-    lFall90->Draw();
+    
+		//stops the program drawing lines fallTimes which couldn't be found
+		if(fallTime!=0){
+    	TLine * lFall90 = new TLine(timeFall90,fFloor,timeFall90,fPeak);
+    	lFall90->SetLineColor(kBlue);
+    	lFall90->Draw();
 
-    TLine * lFall10 = new TLine(timeFall10,fFloor,timeFall10,fPeak);
-    lFall10->SetLineColor(kBlue);
-    lFall10->Draw();
-    }
-	Rise->Fill(riseTime);
-  Fall->Fill(fallTime);
+    	TLine * lFall10 = new TLine(timeFall10,fFloor,timeFall10,fPeak);
+    	lFall10->SetLineColor(kBlue);
+    	lFall10->Draw();
+    	}
+		}
 	
+	Rise->Fill(riseTime);
+  
+	//Stops it trying to fill with nonexistent 
+	//falltimes
+	if(fallTime!=0)
+		Fall->Fill(fallTime);
+	
+ return false ; 
 }
 
 //To fit hWave with a crystalball fWave, and output
@@ -1456,8 +1487,8 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 	// save waveform fits
 	bool doPlot            = true ; 
 	int  oneIn             = 1000 ; // one in #{oneIn} waveforms saved 
-	bool investigatenPeaks = false;
-	bool investigateFit    = false;
+	bool investigatenPeaks = true ;
+	bool investigateFit    = true ;
 
 	cout << endl;
 	cout << " Entered Integration "                          << endl;
@@ -1603,9 +1634,13 @@ int PMTAnalyser::WaveformHistogram(int totPulses,
 				nSignals++;
 			}
 
+		bool RFError = false ;
 		//Only finding the rise/fall times if wanted
 		if(investigateRiseFall)
-			RiseFall(fWave, Rise, Fall, SaveFigures) ;		
+			RFError = RiseFall(fWave, Rise, Fall, SaveFigures) ;		
+		
+		if(RFError)
+			can->SaveAs("Error.png");
 		
 		//To print out waveforms if desired
 		if(SaveFigures && investigateFit){
