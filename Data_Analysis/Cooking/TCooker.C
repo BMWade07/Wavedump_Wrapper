@@ -158,11 +158,10 @@ float TCooker::ADC_To_Wave(short ADC){
 }
 
 bool TCooker::IsSampleInBaseline(short iSample,
-				 short option = 1){
-  
+				 short option = 1){ 
   float time  = (float)iSample * SampleToTime();
-  float width = 30.;
-  
+  float width = 30.; //Width of peak in ns?
+
   float waveform_duration = GetLength_ns();
 
   switch(option){
@@ -180,6 +179,47 @@ bool TCooker::IsSampleInBaseline(short iSample,
 
 //------------------------------
 
+/*-------------------------------
+ * ------------------------------
+ *- Author: Ben Wade           -
+ *- An after pulsing baseline  -
+ *- test method(s)             -
+ *------------------------------*/
+
+void TCooker::RollingWindowBaseline()
+{
+  //Uses an average from a window to 
+  //calculate a baseline and plot it 
+  //with the original waveform?
+  
+  //This lowers the available resolution
+  //but will get rid of pulses at the beginning
+  //and end of the waveform
+  
+  //Looping over all waveforms (entries)
+  for (int iEntry = 0; iEntry < nentries; iEntry++) {
+    rawTree->GetEntry(iEntry);
+    
+    min_mV_local  =  1000.;
+    peak_mV_local = -1000.;
+    peak_samp_local = 0;  
+
+    base_mV_local = 0.;
+    nBaseSamps   = 0;
+
+    //Looping over the samples in the waveform and 
+    //averaging 4 bins for the baseline
+    for (short iSamp = 0; iSamp < GetNSamples(); ++iSamp){
+      
+      if (iSamp < 2 || iSamp < GetNSamples()-2)
+          
+
+
+
+}
+
+
+//------------------------------
 void TCooker::Baseline(){
     
   InitBaseline();
