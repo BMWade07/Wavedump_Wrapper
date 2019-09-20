@@ -196,26 +196,78 @@ void TCooker::RollingWindowBaseline()
   //but will get rid of pulses at the beginning
   //and end of the waveform
   
+  float Wave_mV = 0.0;		//the volt of a bin, cast to double
+  float Sigma_Wave_mV = 0.0;	//The sum of bins being averaged over
+  float Average_Wave_mV = 0.0;	// The average to be used
+				//in the baseline
+
+  string Path = "./Plots/AfterPulses/"; 
+  string PathnName = " ";
+  
+  //Probably already a variable, so remove later
+  //----------------------------------------------------------
+  float WaveformTime = (float)GetNSamples() * sampleToTime(); //Finding the time of a waveform
+  //----------------------------------------------------------    
+
+  hRealWave = new TF1("hRealWave", 
+		      " Originial Waveform ; Time (ns) ; Voltage (mV) ",
+		      GetNSamples(), 0.0, WaveformTime);
+
+  hBaseWave = new TF1("hBaseWave", 
+		      " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
+		      GetNSamples(), 0.0, WaveformTime);    
+
   //Looping over all waveforms (entries)
-  for (int iEntry = 0; iEntry < nentries; iEntry++) {
-    rawTree->GetEntry(iEntry);
-    
-    min_mV_local  =  1000.;
-    peak_mV_local = -1000.;
-    peak_samp_local = 0;  
-
-    base_mV_local = 0.;
-    nBaseSamps   = 0;
-
-    //Looping over the samples in the waveform and 
-    //averaging 4 bins for the baseline
-    for (short iSamp = 0; iSamp < GetNSamples(); ++iSamp){
+  for (int iEntry = 0; iEntry < nentries; iEntry++) 
+  {
+  
+    //Reduce the number of plots
+    if (iEntry%1024 == 0) 
+    {
       
-      if (iSamp < 2 || iSamp < GetNSamples()-2)
-          
+      rawTree->GetEntry(iEntry);
 
-
-
+      //Looping over the samples in the waveform and 
+      //averaging 4 bins for the baseline
+      for (short iSamp = 0; iSamp < GetNSamples(); ++iSamp)
+      {
+                   
+	Wave_mV = ADC_To_Wave(ADC->at(iSamp)); //finding the mV at the iSamp
+        Sigma_Wave_mV = wave_mV;
+	Average_Wave_mV = 0.0;
+      
+	hRealWave->SetBinContent(iSamp, (double)wave_mV);
+      
+	if (iSamp < 2 || iSamp < GetNSamples()-2)
+	  hBaseWave->SetBinContent(iSamp, 10000.0); 
+	  //A stupid way of removing the bin from the histogram    
+      
+	else
+	{
+	  //summing bins either side of the current 
+	  for (int Delta_iSamp = 1; Delta_iSamp < 3, ++i)
+	    {
+	    Sigma_Wave_mV = Sigma_Wave_mv + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
+	    Sigma_Wave_mV = Sigma_Wave_mv + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
+	    }
+	  Average_Wave_mV = Sigma_Wave_mV/5; //Averaging the summation
+	  hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	}
+      
+      hRealWave->SetLineColor(1);  
+      hRealWave->SetLineWidth(2);
+      hRealWave->Draw();
+      
+      hBaseWave->SetLineColor(2);
+      hBaseWave->SetLineWidth(2);
+      hBaseWave->Draw("SAME");
+      
+      PathnName = Path + printf("SmoothBase_%i.pdf", iSamp);
+      
+      canvas->SaveAs(PathnName.c_str())
+      }
+    }
+  }
 }
 
 

@@ -148,8 +148,10 @@ public :
    
    //----
    // Study of Baseline
+   void RollingBaseline();
+   
    void  Baseline();
-
+   
    void  InitBaseline();
    void  SaveBaseline(string outFolder = "./Plots/Baseline/");
 
