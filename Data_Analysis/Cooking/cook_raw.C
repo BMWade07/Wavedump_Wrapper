@@ -118,7 +118,10 @@ int main(int argc, char * argv[]){
     // Baseline investigation
     // plot: baseline, vs event, peak vs baseline
     //cooker->Baseline();
-    
+
+    // RollingBaseline investigation
+    cooker->RollingBaseline();   
+ 
     // Delete outFile pointer
     cooker->End();
     

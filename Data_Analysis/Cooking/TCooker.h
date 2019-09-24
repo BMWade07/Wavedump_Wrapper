@@ -148,7 +148,7 @@ public :
    
    //----
    // Study of Baseline
-   void RollingBaseline();
+   void  RollingBaseline();
    
    void  Baseline();
    

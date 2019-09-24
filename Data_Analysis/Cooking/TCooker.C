@@ -181,13 +181,12 @@ bool TCooker::IsSampleInBaseline(short iSample,
 
 /*-------------------------------
  * ------------------------------
- *- Author: Ben Wade           -
- *- An after pulsing baseline  -
- *- test method(s)             -
+ * - Author: Ben Wade           -
+ * - An after pulsing baseline  -
+ * - test method(s)             -
  *------------------------------*/
 
-void TCooker::RollingWindowBaseline()
-{
+void TCooker::RollingBaseline(){
   //Uses an average from a window to 
   //calculate a baseline and plot it 
   //with the original waveform?
@@ -202,20 +201,21 @@ void TCooker::RollingWindowBaseline()
 				//in the baseline
 
   string Path = "./Plots/AfterPulses/"; 
-  string PathnName = " ";
-  
+  //string PathnName = " ";
+  //string Name = " ";
+
   //Probably already a variable, so remove later
   //----------------------------------------------------------
-  float WaveformTime = (float)GetNSamples() * sampleToTime(); //Finding the time of a waveform
+  float WaveformTime = (float)GetNSamples() * SampleToTime(); //Finding the time of a waveform
   //----------------------------------------------------------    
 
-  hRealWave = new TF1("hRealWave", 
-		      " Originial Waveform ; Time (ns) ; Voltage (mV) ",
-		      GetNSamples(), 0.0, WaveformTime);
+  TH1D * hRealWave = new TH1D("hRealWave", 
+		             " Originial Waveform ; Time (ns) ; Voltage (mV) ",
+		             GetNSamples(), 0.0, WaveformTime);
 
-  hBaseWave = new TF1("hBaseWave", 
-		      " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
-		      GetNSamples(), 0.0, WaveformTime);    
+  TH1D * hBaseWave = new TH1D("hBaseWave", 
+			     " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
+			     GetNSamples(), 0.0, WaveformTime);    
 
   //Looping over all waveforms (entries)
   for (int iEntry = 0; iEntry < nentries; iEntry++) 
@@ -233,10 +233,10 @@ void TCooker::RollingWindowBaseline()
       {
                    
 	Wave_mV = ADC_To_Wave(ADC->at(iSamp)); //finding the mV at the iSamp
-        Sigma_Wave_mV = wave_mV;
+        Sigma_Wave_mV = Wave_mV;
 	Average_Wave_mV = 0.0;
       
-	hRealWave->SetBinContent(iSamp, (double)wave_mV);
+	hRealWave->SetBinContent(iSamp, (double)Wave_mV);
       
 	if (iSamp < 2 || iSamp < GetNSamples()-2)
 	  hBaseWave->SetBinContent(iSamp, 10000.0); 
@@ -245,27 +245,36 @@ void TCooker::RollingWindowBaseline()
 	else
 	{
 	  //summing bins either side of the current 
-	  for (int Delta_iSamp = 1; Delta_iSamp < 3, ++i)
+	  for (int Delta_iSamp = 1; Delta_iSamp < 3; ++Delta_iSamp)
 	    {
-	    Sigma_Wave_mV = Sigma_Wave_mv + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
-	    Sigma_Wave_mV = Sigma_Wave_mv + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
+	    Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
+	    Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
 	    }
 	  Average_Wave_mV = Sigma_Wave_mV/5; //Averaging the summation
 	  hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
 	}
-      
+      }
       hRealWave->SetLineColor(1);  
       hRealWave->SetLineWidth(2);
       hRealWave->Draw();
       
       hBaseWave->SetLineColor(2);
       hBaseWave->SetLineWidth(2);
-      hBaseWave->Draw("SAME");
+      hBaseWave->Draw("SAME"); 
+
+      string Name = "SmoothBase_";
+      //char iSampName[1000];
+      //sprintf(iSampName, "%d", iSamp);
+      //char *iSampPointer = (char*)iSampName;
+      //iSampPointer = iSampName;
+      //char* iSampCharPointer = iSampName;
+      //sprintf(Name, "SmoothBase_%d.pdf", iSamp);
+      //char PathnName[2000]; 
+      //printf(PathnName, iSampName);//Path + Name + iSampName + ".pdf";
+      string PathnName = Path + Name + std::to_string(iEntry) + ".pdf";
+      printf(PathnName.c_str());
+      //canvas->SaveAs(PathnName.c_str());
       
-      PathnName = Path + printf("SmoothBase_%i.pdf", iSamp);
-      
-      canvas->SaveAs(PathnName.c_str())
-      }
     }
   }
 }
