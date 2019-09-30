@@ -206,54 +206,101 @@ void TCooker::RollingBaseline(){
 
   //Probably already a variable, so remove later
   //----------------------------------------------------------
-  float WaveformTime = (float)GetNSamples() * SampleToTime(); //Finding the time of a waveform
+  float WaveformTime = (float)(GetNSamples()-1) * SampleToTime(); //Finding the time of a waveform
   //----------------------------------------------------------    
 
   TH1D * hRealWave = new TH1D("hRealWave", 
 		             " Originial Waveform ; Time (ns) ; Voltage (mV) ",
-		             GetNSamples(), 0.0, WaveformTime);
+		             GetNSamples()-1, 0.0, WaveformTime);
 
   TH1D * hBaseWave = new TH1D("hBaseWave", 
 			     " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
-			     GetNSamples(), 0.0, WaveformTime);    
+			     GetNSamples()-1, 0.0, WaveformTime);    
 
   //Looping over all waveforms (entries)
-  for (int iEntry = 0; iEntry < nentries; iEntry++) 
+  for (Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
   {
-  
+    InitCanvas(); 
+    
+    double first_bins = 0;
+        
     //Reduce the number of plots
-    if (iEntry%1024 == 0) 
-    {
-      
-      rawTree->GetEntry(iEntry);
+    if (iEntry%(4*1024) == 0) 
+      printf("I Am Working... I Promise \n");
+    //}
 
-      //Looping over the samples in the waveform and 
-      //averaging 4 bins for the baseline
-      for (short iSamp = 0; iSamp < GetNSamples(); ++iSamp)
-      {
-                   
-	Wave_mV = ADC_To_Wave(ADC->at(iSamp)); //finding the mV at the iSamp
-        Sigma_Wave_mV = Wave_mV;
-	Average_Wave_mV = 0.0;
+    rawTree->GetEntry(iEntry);
+    //printf(std::to_string(GetNSamples()).c_str());
+    //Looping over the samples in the waveform and 
+    //averaging 5 bins for the baseline
+    for (Long64_t iSamp = 0; iSamp < GetNSamples(); ++iSamp)
+    {
+                 
+      Wave_mV = ADC_To_Wave(ADC->at(iSamp)); //finding the mV at the iSamp
+      Sigma_Wave_mV = Wave_mV;
+      Average_Wave_mV = Wave_mV; //For reassigning later, there just incase
+
+      hRealWave->SetBinContent(iSamp, (double)Wave_mV);
       
-	hRealWave->SetBinContent(iSamp, (double)Wave_mV);
-      
-	if (iSamp < 2 || iSamp < GetNSamples()-2)
-	  hBaseWave->SetBinContent(iSamp, 10000.0); 
+      if (iSamp <= 6)//|| iSamp >= GetNSamples()-7)
+	continue;//hBaseWave->SetBinContent(iSamp, 10000.0); 
 	  //A stupid way of removing the bin from the histogram    
-      
-	else
+      else if (iSamp >= (GetNSamples()-7))
+	continue;
+
+      else
+      {
+	//summing bins either side of the current 
+	for (int Delta_iSamp = 1; Delta_iSamp < 8; ++Delta_iSamp)
 	{
-	  //summing bins either side of the current 
-	  for (int Delta_iSamp = 1; Delta_iSamp < 3; ++Delta_iSamp)
-	    {
-	    Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
-	    Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
-	    }
-	  Average_Wave_mV = Sigma_Wave_mV/5; //Averaging the summation
-	  hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
+	}
+	  
+	Average_Wave_mV = Sigma_Wave_mV/15; //Averaging the summation and reassigning
+	hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	   
+	if (iSamp == 7)
+	{
+	  hBaseWave->SetBinContent(iSamp - 7, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 6, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 5, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 4, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 3, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 2, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp - 1, (double)Average_Wave_mV);
+	  
+	  first_bins = (double)Average_Wave_mV;
+	  
+	}
+	else if (iSamp == (GetNSamples() - 9))
+	{
+	  //hBaseWave->SetBinContent(iSamp + 9, (double)Average_Wave_mV);	
+	  hBaseWave->SetBinContent(iSamp + 8, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 7, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 6, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 5, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 4, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 3, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 2, (double)Average_Wave_mV);
+	  hBaseWave->SetBinContent(iSamp + 1, (double)Average_Wave_mV);
+      	  
 	}
       }
+    }  
+    double real_max = hRealWave->GetMaximum();//GetBinContent(hRealWave->GetMaximum());
+    double base_max = hBaseWave->GetMaximum();//BinContent(hBaseWave->GetMaximum());
+      
+    double real_height = real_max - first_bins;
+    double base_height = base_max - first_bins;
+    
+    double last_real_height;
+    double last_base_height;
+
+    if(fabs(2.5*base_height) > fabs(real_height) )
+    {
+      //hRealWave->SetAxisRange(2000.,2200.,"X");
+
       hRealWave->SetLineColor(1);  
       hRealWave->SetLineWidth(2);
       hRealWave->Draw();
@@ -263,19 +310,25 @@ void TCooker::RollingBaseline(){
       hBaseWave->Draw("SAME"); 
 
       string Name = "SmoothBase_";
-      //char iSampName[1000];
-      //sprintf(iSampName, "%d", iSamp);
-      //char *iSampPointer = (char*)iSampName;
-      //iSampPointer = iSampName;
-      //char* iSampCharPointer = iSampName;
-      //sprintf(Name, "SmoothBase_%d.pdf", iSamp);
-      //char PathnName[2000]; 
-      //printf(PathnName, iSampName);//Path + Name + iSampName + ".pdf";
-      string PathnName = Path + Name + std::to_string(iEntry) + ".pdf";
-      printf(PathnName.c_str());
-      //canvas->SaveAs(PathnName.c_str());
+      string PathnName = Path + Name + std::to_string(iEntry) + ".png";
       
+      canvas->Print(PathnName.c_str());
+      printf("\nThe Real Height Difference: %f, Last: %f", real_height, last_real_height);
+      printf("\n");
+      
+      printf("\n");
+      printf("The base Height Difference: %f, Last: %f", base_height, last_base_height);
+      printf("\n");
+      
+      printf("\n");
+      printf("The real max height: %f, base max height: %f", real_max, base_max);
+      printf("\n");
+
     }
+    last_real_height = real_height;
+    last_base_height = base_height;
+
+    DeleteCanvas();
   }
 }
 
