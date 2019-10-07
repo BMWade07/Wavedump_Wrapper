@@ -186,6 +186,32 @@ bool TCooker::IsSampleInBaseline(short iSample,
  * - An after pulsing baseline  -
  * - test method(s)             -
  *------------------------------*/
+TH1F * TCooker::FFTBinSet(TH1F * hFFT, Float_t time_width){
+  //Becaues fft histograms don't set thereown
+  //bin widths, and it needs to be known while
+  //making the histogram, this function makes a
+  //new histogram, and sets the bin width from 
+  //the FFT of the histogram fed into it
+
+  Int_t NBins = hFFT->GetNbinsX();
+  Int_t Half_NBins = NBins/2; 
+  Float_t freq_width = 1./time_width/NBins / 1.E6; 
+  //Calculating the width of the bins in frequency space (MHz)
+  //can be used on other FFTs, but may need adjustment?
+  
+  TH1F * hFFT_Freq = new TH1F("hFFT_Freq", 
+                              "FFT of waveform;Frequency (MHz);Counts",
+                              Half_NBins, 0., freq_width*Half_NBins);
+ 
+  //Not forgetting to set the bin content
+  for(int i = 4; i <= Half_NBins; i++)
+    hFFT_Freq->SetBinContent(i, hFFT->GetBinContent(i));  
+
+  hFFT->Delete();
+
+  return hFFT_Freq;
+
+}
 
 void TCooker::RollingBaseline(){
   //Uses an average from a window to 
@@ -210,26 +236,27 @@ void TCooker::RollingBaseline(){
   float WaveformTime = (float)(GetNSamples()-1) * SampleToTime(); //Finding the time of a waveform
   //----------------------------------------------------------    
 
-  TH1D * hRealWave = new TH1D("hRealWave", 
-		             " Originial Waveform ; Time (ns) ; Voltage (mV) ",
-		             GetNSamples()-1, 0.0, WaveformTime);
-
-  TH1D * hBaseWave = new TH1D("hBaseWave", 
-			     " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
-			     GetNSamples()-1, 0.0, WaveformTime);    
-
-  TH1 * hFFTRealWave  = new TH1F("hFFTRealWave",
-                               " FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
-                               GetNSamples()-1, 0.0, GetNSamples()-1);
-  
-  TH1 * hFFTBaseWave  = new TH1F("hFFTBaseWave",
-                               " FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
-                               GetNSamples()-1, 0.0, GetNSamples()-1);
-
-
+ 
   //Looping over all waveforms (entries)
   for (Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
   {
+    
+    TH1D * hRealWave = new TH1D("hRealWave", 
+		                "Originial Waveform ; Time (ns) ; Voltage (mV) ",
+		                GetNSamples()-1, 0.0, WaveformTime);
+
+    TH1D * hBaseWave = new TH1D("hBaseWave", 
+			        "Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
+			        GetNSamples()-1, 0.0, WaveformTime);    
+
+    TH1F * hFFTRealWave  = new TH1F("hFFTRealWave",
+				    "FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
+				    GetNSamples()-1, 0.0, GetNSamples()-1);
+
+    TH1F * hFFTBaseWave  = new TH1F("hFFTBaseWave",
+			            "FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
+                                    GetNSamples()-1, 0.0, GetNSamples()-1);
+
     InitCanvas(); 
     
     double first_bins = 0;
@@ -310,15 +337,18 @@ void TCooker::RollingBaseline(){
     double last_base_height;
     
     // Producing the FFTs for investigation
-   if(fabs(2.5*base_height) > fabs(real_height) )
+    if(fabs(2.5*base_height) > fabs(real_height) )
     {	
       
       hRealWave->FFT(hFFTRealWave, "MAG");
+      hFFTRealWave = FFTBinSet(hFFTRealWave, hRealWave->GetBinWidth(1));
       hFFTRealWave->Draw();
-      hBaseWave->FFT(hFFTBaseWave, "MAG");
-      hFFTBaseWave->Draw("SAME");
+ 
+      //hBaseWave->FFT(hFFTBaseWave, "MAG");
+      //hFFTBaseWave = FFTBinSet(hFFTBaseWave, hBaseWave->GetBinWidth(1));
+      //hFFTBaseWave->Draw("SAME");
       canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
-
+      
       
       //hRealWave->SetAxisRange(2000.,2200.,"X");
 
@@ -349,6 +379,14 @@ void TCooker::RollingBaseline(){
     last_real_height = real_height;
     last_base_height = base_height;
 
+    hRealWave->Delete();
+
+    hBaseWave->Delete();   
+
+    hFFTRealWave->Delete();
+
+    hFFTBaseWave->Delete();
+    
     DeleteCanvas();
   }
 }

@@ -148,6 +148,8 @@ public :
    
    //----
    // Study of Baseline
+   TH1F * FFTBinSet(TH1F *, Float_t);
+
    void  RollingBaseline();
    
    void  Baseline();
