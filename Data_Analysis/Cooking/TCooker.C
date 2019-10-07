@@ -1,5 +1,6 @@
 #define TCooker_cxx
 #include "TCooker.h"
+#include "TVirtualFFT.h"
 #include <TH2.h>
 #include <math.h>
 #include <limits.h>
@@ -217,6 +218,15 @@ void TCooker::RollingBaseline(){
 			     " Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
 			     GetNSamples()-1, 0.0, WaveformTime);    
 
+  TH1 * hFFTRealWave  = new TH1F("hFFTRealWave",
+                               " FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
+                               GetNSamples()-1, 0.0, GetNSamples()-1);
+  
+  TH1 * hFFTBaseWave  = new TH1F("hFFTBaseWave",
+                               " FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
+                               GetNSamples()-1, 0.0, GetNSamples()-1);
+
+
   //Looping over all waveforms (entries)
   for (Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
   {
@@ -230,6 +240,8 @@ void TCooker::RollingBaseline(){
     //}
 
     rawTree->GetEntry(iEntry);
+
+
     //printf(std::to_string(GetNSamples()).c_str());
     //Looping over the samples in the waveform and 
     //averaging 5 bins for the baseline
@@ -296,9 +308,18 @@ void TCooker::RollingBaseline(){
     
     double last_real_height;
     double last_base_height;
+    
+    // Producing the FFTs for investigation
+   if(fabs(2.5*base_height) > fabs(real_height) )
+    {	
+      
+      hRealWave->FFT(hFFTRealWave, "MAG");
+      hFFTRealWave->Draw();
+      hBaseWave->FFT(hFFTBaseWave, "MAG");
+      hFFTBaseWave->Draw("SAME");
+      canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
 
-    if(fabs(2.5*base_height) > fabs(real_height) )
-    {
+      
       //hRealWave->SetAxisRange(2000.,2200.,"X");
 
       hRealWave->SetLineColor(1);  
