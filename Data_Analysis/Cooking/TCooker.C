@@ -5,6 +5,8 @@
 #include <math.h>
 #include <limits.h>
 
+#include <gsl/gsl_fft_real_float.h>
+
 #include "../Common_Tools/wmStyle.C"
 
 void TCooker::Cook(){
@@ -193,19 +195,22 @@ TH1F * TCooker::FFTBinSet(TH1F * hFFT, Float_t time_width){
   //new histogram, and sets the bin width from 
   //the FFT of the histogram fed into it
 
-  Int_t NBins = hFFT->GetNbinsX();
-  Int_t Half_NBins = NBins/2; 
-  Float_t freq_width = 1./time_width/NBins / 1.E6; 
+  Int_t NBins = GetNSamples();
+  Int_t Half_NBins = (int)NBins/2; 
+  Float_t freq_width = 1./(time_width*(float)NBins); 
   //Calculating the width of the bins in frequency space (MHz)
   //can be used on other FFTs, but may need adjustment?
   
+  printf("The delta t: %e, the NBins: %i, freq_width: %f", time_width, NBins, freq_width);
+
   TH1F * hFFT_Freq = new TH1F("hFFT_Freq", 
                               "FFT of waveform;Frequency (MHz);Counts",
                               Half_NBins, 0., freq_width*Half_NBins);
  
   //Not forgetting to set the bin content
-  for(int i = 4; i <= Half_NBins; i++)
+  for(int i = 2; i <= Half_NBins; i++){
     hFFT_Freq->SetBinContent(i, hFFT->GetBinContent(i));  
+    }
 
   hFFT->Delete();
 
@@ -226,6 +231,18 @@ void TCooker::RollingBaseline(){
   float Sigma_Wave_mV = 0.0;	//The sum of bins being averaged over
   float Average_Wave_mV = 0.0;	// The average to be used
 				//in the baseline
+  //InitCanvas();
+  TH2D * BaseComp = new TH2D("BaseComp",
+                             "Comparison of original and smoothed Baselines; original (mVns); Smooth (mVns)",
+                              200, 1000., 5000., 100, 500., 2500.);
+
+  TH2D * AvevPeak = new TH2D("AvevPeak",
+                             "Average of the Waveform vs Peak Voltage; Average Voltage (mV); Peak Voltage (mV)",
+                             75, -2., 3., 75, 0.,100.);
+  TH2D * PeakvInt = new TH2D("PeakvInt", 
+                             "Peak Voltage Vs Wave Integration; Integral of Waveform (mV ns); Peak Voltage",
+                             200, 1000., 4000., 75, 0., 100.);
+
 
   string Path = "./Plots/AfterPulses/"; 
   //string PathnName = " ";
@@ -233,14 +250,17 @@ void TCooker::RollingBaseline(){
 
   //Probably already a variable, so remove later
   //----------------------------------------------------------
-  float WaveformTime = (float)(GetNSamples()-1) * SampleToTime(); //Finding the time of a waveform
+  float WaveformTime = (float)GetNSamples() * SampleToTime(); //Finding the time of a waveform
   //----------------------------------------------------------    
-
- 
+  
+  float bin_width = SampleToTime();
   //Looping over all waveforms (entries)
-  for (Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
+  for(Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
   {
     
+    float Real_Integral = 0;
+    float Base_Integral = 0;    
+/*
     TH1D * hRealWave = new TH1D("hRealWave", 
 		                "Originial Waveform ; Time (ns) ; Voltage (mV) ",
 		                GetNSamples()-1, 0.0, WaveformTime);
@@ -256,51 +276,58 @@ void TCooker::RollingBaseline(){
     TH1F * hFFTBaseWave  = new TH1F("hFFTBaseWave",
 			            "FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
                                     GetNSamples()-1, 0.0, GetNSamples()-1);
-
     InitCanvas(); 
-    
+    */
     double first_bins = 0;
-        
+      
     //Reduce the number of plots
-    if (iEntry%(4*1024) == 0) 
+    if(iEntry%(4*1024) == 0) 
       printf("I Am Working... I Promise \n");
     //}
-
+    
+    double peakvolt = 0.;
+    
     rawTree->GetEntry(iEntry);
-
-
+    
     //printf(std::to_string(GetNSamples()).c_str());
     //Looping over the samples in the waveform and 
     //averaging 5 bins for the baseline
-    for (Long64_t iSamp = 0; iSamp < GetNSamples(); ++iSamp)
+    for(Long64_t iSamp = 0; iSamp < GetNSamples(); ++iSamp)
     {
-                 
-      Wave_mV = ADC_To_Wave(ADC->at(iSamp)); //finding the mV at the iSamp
+                
+
+      Wave_mV = ADC_To_Wave(ADC->at(iSamp)) + 10; //finding the mV at the iSamp
       Sigma_Wave_mV = Wave_mV;
       Average_Wave_mV = Wave_mV; //For reassigning later, there just incase
-
-      hRealWave->SetBinContent(iSamp, (double)Wave_mV);
+      Real_Integral = Real_Integral + Wave_mV*bin_width;
       
-      if (iSamp <= 6)//|| iSamp >= GetNSamples()-7)
+      if( Wave_mV > peakvolt)
+	peakvolt = Wave_mV;
+
+
+      //hRealWave->SetBinContent(iSamp, (double)Wave_mV);
+      
+      if(iSamp <= 6)//|| iSamp >= GetNSamples()-7)
 	continue;//hBaseWave->SetBinContent(iSamp, 10000.0); 
 	  //A stupid way of removing the bin from the histogram    
-      else if (iSamp >= (GetNSamples()-7))
+      else if(iSamp >= (GetNSamples()-7))
 	continue;
 
       else
       {
-	//summing bins either side of the current 
-	for (int Delta_iSamp = 1; Delta_iSamp < 8; ++Delta_iSamp)
+	//summing bins either side of the current
+	//IE: smoothing the waveform 
+	for(int Delta_iSamp = 1; Delta_iSamp < 8; ++Delta_iSamp)
 	{
-	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp));
-	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp));
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp))+10;
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp))+10;
 	}
 	  
 	Average_Wave_mV = Sigma_Wave_mV/15; //Averaging the summation and reassigning
-	hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
-	   
-	if (iSamp == 7)
-	{
+//	hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	Base_Integral = Base_Integral + Average_Wave_mV;
+	if(iSamp == 7)
+	{/*
 	  hBaseWave->SetBinContent(iSamp - 7, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 6, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 5, (double)Average_Wave_mV);
@@ -308,12 +335,12 @@ void TCooker::RollingBaseline(){
 	  hBaseWave->SetBinContent(iSamp - 3, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 2, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 1, (double)Average_Wave_mV);
-	  
+	  */
 	  first_bins = (double)Average_Wave_mV;
-	  
-	}
+	  Base_Integral = Base_Integral + first_bins*7;	  	  
+  	}
 	else if (iSamp == (GetNSamples() - 9))
-	{
+	{/*
 	  //hBaseWave->SetBinContent(iSamp + 9, (double)Average_Wave_mV);	
 	  hBaseWave->SetBinContent(iSamp + 8, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp + 7, (double)Average_Wave_mV);
@@ -323,10 +350,12 @@ void TCooker::RollingBaseline(){
 	  hBaseWave->SetBinContent(iSamp + 3, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp + 2, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp + 1, (double)Average_Wave_mV);
-      	  
+      	  */
+	  Base_Integral = Base_Integral + (double)Average_Wave_mV*8;
 	}
       }
     }  
+    /*
     double real_max = hRealWave->GetMaximum();//GetBinContent(hRealWave->GetMaximum());
     double base_max = hBaseWave->GetMaximum();//BinContent(hBaseWave->GetMaximum());
       
@@ -336,59 +365,87 @@ void TCooker::RollingBaseline(){
     double last_real_height;
     double last_base_height;
     
+    
     // Producing the FFTs for investigation
-    if(fabs(2.5*base_height) > fabs(real_height) )
-    {	
+    //if(fabs(2.5*base_height) > fabs(real_height))
+    //{	
       
-      hRealWave->FFT(hFFTRealWave, "MAG");
-      hFFTRealWave = FFTBinSet(hFFTRealWave, hRealWave->GetBinWidth(1));
-      hFFTRealWave->Draw();
- 
+      //hRealWave->FFT(hFFTRealWave, "MAG");
+      //hFFTRealWave = FFTBinSet(hFFTRealWave, hRealWave->GetBinWidth(1));
+      float Real_Integral = hFFTRealWave->Integral(0.,1030.);       
+      //hFFTRealWave->SetAxisRange(0., 250., "Y");
+      
+      //hFFTRealWave->SetLineColor(1);  
+      //hFFTRealWave->SetLineWidth(2);
+      //hFFTRealWave->Draw();
+
       //hBaseWave->FFT(hFFTBaseWave, "MAG");
       //hFFTBaseWave = FFTBinSet(hFFTBaseWave, hBaseWave->GetBinWidth(1));
-      //hFFTBaseWave->Draw("SAME");
-      canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
-      
-      
-      //hRealWave->SetAxisRange(2000.,2200.,"X");
+      float Base_Integral = hFFTBaseWave->Integral(0., 1030.);
+      //hFFTBaseWave->SetLineColor(2);
+      //hFFTBaseWave->SetLineWidth(2);
+      //hFFTBaseWave->Draw("SAME"); 
 
-      hRealWave->SetLineColor(1);  
-      hRealWave->SetLineWidth(2);
-      hRealWave->Draw();
-      
-      hBaseWave->SetLineColor(2);
-      hBaseWave->SetLineWidth(2);
-      hBaseWave->Draw("SAME"); 
+      //canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
+      */
+      BaseComp->Fill(Real_Integral, Base_Integral);
+      AvevPeak->Fill(Real_Integral/(GetNSamples()*bin_width) , peakvolt);
+      PeakvInt->Fill(Real_Integral, peakvolt);
+      /*
+      hRealWave->SetAxisRange(-10.,100.,"Y");
 
-      string Name = "SmoothBase_";
-      string PathnName = Path + Name + std::to_string(iEntry) + ".png";
+      //hRealWave->GetYaxis()->SetRange(-10, 100);
+      //hRealWave->SetLineColor(1);  
+      //hRealWave->SetLineWidth(2);
+      //hRealWave->Draw();
       
-      canvas->Print(PathnName.c_str());
-      printf("\nThe Real Height Difference: %f, Last: %f", real_height, last_real_height);
-      printf("\n");
-      
-      printf("\n");
-      printf("The base Height Difference: %f, Last: %f", base_height, last_base_height);
-      printf("\n");
-      
-      printf("\n");
-      printf("The real max height: %f, base max height: %f", real_max, base_max);
-      printf("\n");
+      //hBaseWave->SetLineColor(2);
+      //hBaseWave->SetLineWidth(2);
+      //hBaseWave->Draw("SAME"); 
 
-    }
+      //string Name = "SmoothBase_";
+      //string PathnName = Path + Name + std::to_string(iEntry) + ".png";
+      
+      //canvas->Print(PathnName.c_str());
+      //printf("\nThe Real Height Difference: %f, Last: %f", real_height, last_real_height);
+      //printf("\n");
+      
+      //printf("\n");
+      //printf("The base Height Difference: %f, Last: %f", base_height, last_base_height);
+      //printf("\n");
+      
+      //printf("\n");
+      //printf("The real max height: %f, base max height: %f", real_max, base_max);
+      //printf("\n");
+
+    //}
     last_real_height = real_height;
     last_base_height = base_height;
 
-    hRealWave->Delete();
+    //hRealWave->Delete();
 
-    hBaseWave->Delete();   
+    //hBaseWave->Delete();   
 
-    hFFTRealWave->Delete();
+    //hFFTRealWave->Delete();
 
-    hFFTBaseWave->Delete();
+    //hFFTBaseWave->Delete();
+  */  
     
-    DeleteCanvas();
   }
+  
+  InitCanvas();  
+  BaseComp->Draw("COLZ");
+  //string Pathto2d = "./Plots/Studies/Base.png"; 
+  canvas->SaveAs("./Plots/Studies/Base.png");
+  
+  AvevPeak->Draw("COLZ");
+  canvas->SaveAs("./Plots/Studies/AvePeak.png");
+  
+  PeakvInt->Draw("COLZ");
+  canvas->SaveAs("./Plots/Studies/PeakInt.png");
+  
+  DeleteCanvas();
+  
 }
 
 
