@@ -5,7 +5,9 @@
 #include <math.h>
 #include <limits.h>
 
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real_float.h>
+#include <gsl/gsl_fft_halfcomplex.h>
 
 #include "../Common_Tools/wmStyle.C"
 
@@ -188,6 +190,8 @@ bool TCooker::IsSampleInBaseline(short iSample,
  * - An after pulsing baseline  -
  * - test method(s)             -
  *------------------------------*/
+
+
 TH1F * TCooker::FFTBinSet(TH1F * hFFT, Float_t time_width){
   //Becaues fft histograms don't set thereown
   //bin widths, and it needs to be known while
@@ -231,7 +235,14 @@ void TCooker::RollingBaseline(){
   float Sigma_Wave_mV = 0.0;	//The sum of bins being averaged over
   float Average_Wave_mV = 0.0;	// The average to be used
 				//in the baseline
-  //InitCanvas();
+  
+  //declaring spaces for the fft
+  gsl_fft_real_wavetable * real;
+  gsl_fft_real_workspace * work;
+
+				
+  //Making the 2D histograms for studies, Hashed out, can be out backin 
+  
   TH2D * BaseComp = new TH2D("BaseComp",
                              "Comparison of original and smoothed Baselines; original (mVns); Smooth (mVns)",
                               200, 1000., 5000., 100, 500., 2500.);
@@ -244,9 +255,11 @@ void TCooker::RollingBaseline(){
                              200, 1000., 4000., 75, 0., 100.);
 
 
-  string Path = "./Plots/AfterPulses/"; 
-  //string PathnName = " ";
-  //string Name = " ";
+  //Path to the relavent directories
+  /*
+  string AfPath = "./Plots/AfterPulses/"; 
+  string StPath = "./Plot/Studies/";
+  */
 
   //Probably already a variable, so remove later
   //----------------------------------------------------------
@@ -258,9 +271,30 @@ void TCooker::RollingBaseline(){
   for(Long64_t iEntry = 0; iEntry < nentries; ++iEntry) 
   {
     
-    float Real_Integral = 0;
-    float Base_Integral = 0;    
-/*
+    //Confirming the function is working
+    if(iEntry%(4*1024) == 0) 
+      printf("Entry = %ld \n", iEntry);
+    
+    //Importing the waveform samples for the ith entry
+    rawTree->GetEntry(iEntry);
+    
+    //Trying gsl fourier transforms
+
+    
+    float Real_Integral = 0; //Real is the integral of the waveform
+    float Base_Integral = 0; //Base is the 15 bin average which acts a
+                             //lowpass filter
+    
+    //The rolling bin average will probably be hashed out of the code in the end
+    //Because of the average 8 bins at the beginning, and end are set to 
+    //a standard value of the 8th bin value (the first and last bins which
+    //can be averaged)
+    double first_bins = 0 ;  
+    double peakvolt   = 0.;
+
+    //#########################################################################################
+    //Making the waveform plots, hashed out, butcan be put in an if statment, or hashed back in
+    /*
     TH1D * hRealWave = new TH1D("hRealWave", 
 		                "Originial Waveform ; Time (ns) ; Voltage (mV) ",
 		                GetNSamples()-1, 0.0, WaveformTime);
@@ -268,48 +302,48 @@ void TCooker::RollingBaseline(){
     TH1D * hBaseWave = new TH1D("hBaseWave", 
 			        "Smoothed Waveform ; Time (ns) ; Voltage (mV) ",
 			        GetNSamples()-1, 0.0, WaveformTime);    
-
+    */
     TH1F * hFFTRealWave  = new TH1F("hFFTRealWave",
 				    "FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
 				    GetNSamples()-1, 0.0, GetNSamples()-1);
-
+/*
     TH1F * hFFTBaseWave  = new TH1F("hFFTBaseWave",
 			            "FFT of the Waveforms ; Frequency (Hz?) ; Voltage (mV)? ",
                                     GetNSamples()-1, 0.0, GetNSamples()-1);
     InitCanvas(); 
     */
-    double first_bins = 0;
-      
-    //Reduce the number of plots
-    if(iEntry%(4*1024) == 0) 
-      printf("I Am Working... I Promise \n");
-    //}
     
-    double peakvolt = 0.;
+    double pleasedontcauseastackoverflow[GetNSamples()];
     
-    rawTree->GetEntry(iEntry);
-    
-    //printf(std::to_string(GetNSamples()).c_str());
     //Looping over the samples in the waveform and 
     //averaging 5 bins for the baseline
     for(Long64_t iSamp = 0; iSamp < GetNSamples(); ++iSamp)
     {
                 
-
-      Wave_mV = ADC_To_Wave(ADC->at(iSamp)) + 10; //finding the mV at the iSamp
-      Sigma_Wave_mV = Wave_mV;
-      Average_Wave_mV = Wave_mV; //For reassigning later, there just incase
-      Real_Integral = Real_Integral + Wave_mV*bin_width;
+      //finding the mV at the iSamp
+      Wave_mV = ADC_To_Wave(ADC->at(iSamp)) + 15; //+15 for the offset, hardcoded, but can/should
+                                                  //Be changed later     
+      Sigma_Wave_mV = Wave_mV;                    //The sum for the 15 bin averaging
+      Average_Wave_mV = Wave_mV;                  //For reassigning later, there just incase
       
+      pleasedontcauseastackoverflow[iSamp] = Wave_mV;
+
+      Real_Integral = Real_Integral + Wave_mV*bin_width;//Integral of the full waveform
+      
+      //finding the peak voltage without using a root histogram
       if( Wave_mV > peakvolt)
 	peakvolt = Wave_mV;
 
-
+      //###########################################################
+      //filling the histogram bin by bin, can be unhashed if wanted
       //hRealWave->SetBinContent(iSamp, (double)Wave_mV);
       
       if(iSamp <= 6)//|| iSamp >= GetNSamples()-7)
-	continue;//hBaseWave->SetBinContent(iSamp, 10000.0); 
-	  //A stupid way of removing the bin from the histogram    
+	continue;   //hBaseWave->SetBinContent(iSamp, 10000.0); 
+      
+      //skipping the bins that can't be averaged
+      //A stupid way of removing the bin from the histogram    
+      
       else if(iSamp >= (GetNSamples()-7))
 	continue;
 
@@ -318,16 +352,22 @@ void TCooker::RollingBaseline(){
 	//summing bins either side of the current
 	//IE: smoothing the waveform 
 	for(int Delta_iSamp = 1; Delta_iSamp < 8; ++Delta_iSamp)
-	{
-	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp))+10;
-	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp))+10;
+	{//Finding content from either side
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp-Delta_iSamp))+15;
+	  Sigma_Wave_mV = Sigma_Wave_mV + ADC_To_Wave(ADC->at(iSamp+Delta_iSamp))+15;
 	}
 	  
 	Average_Wave_mV = Sigma_Wave_mV/15; //Averaging the summation and reassigning
-//	hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	
+	//#######################################################
+	//Setting bin content for the averaged histogram
+	//hBaseWave->SetBinContent(iSamp, (double)Average_Wave_mV);
+	
 	Base_Integral = Base_Integral + Average_Wave_mV;
 	if(iSamp == 7)
-	{/*
+	{/*//############################################################
+	  //setting the first bins which can be averaged to a standard value
+	  //as described above, probably biasing data when in use
 	  hBaseWave->SetBinContent(iSamp - 7, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 6, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp - 5, (double)Average_Wave_mV);
@@ -338,10 +378,11 @@ void TCooker::RollingBaseline(){
 	  */
 	  first_bins = (double)Average_Wave_mV;
 	  Base_Integral = Base_Integral + first_bins*7;	  	  
-  	}
+	  //Doing the setting for the integral which doesn't use root
+	}
 	else if (iSamp == (GetNSamples() - 9))
-	{/*
-	  //hBaseWave->SetBinContent(iSamp + 9, (double)Average_Wave_mV);	
+	{/*//#############################################################
+	  //Similar as above
 	  hBaseWave->SetBinContent(iSamp + 8, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp + 7, (double)Average_Wave_mV);
 	  hBaseWave->SetBinContent(iSamp + 6, (double)Average_Wave_mV);
@@ -353,9 +394,26 @@ void TCooker::RollingBaseline(){
       	  */
 	  Base_Integral = Base_Integral + (double)Average_Wave_mV*8;
 	}
+      
+      
       }
     }  
-    /*
+    //Trying gsl fft 
+    //Making array space and the like
+    work = gsl_fft_real_workspace_alloc (GetNSamples());
+    real = gsl_fft_real_wavetable_alloc (GetNSamples());
+
+    //Transforming
+    gsl_fft_real_transform(pleasedontcauseastackoverflow,
+                           1.0, GetNSamples(), real, work);     
+    
+    for (int i = 0; i < GetNSamples(); i++)
+    {
+      printf ("%d: %e\n", i, pleasedontcauseastackoverflow[i]);
+    }
+    //hFFTRealWave->Fill(pleasedontcauseastackoverflow);
+    /*//#################################################################
+    // Finding the maxima of the histograms for identification
     double real_max = hRealWave->GetMaximum();//GetBinContent(hRealWave->GetMaximum());
     double base_max = hBaseWave->GetMaximum();//BinContent(hBaseWave->GetMaximum());
       
@@ -364,8 +422,7 @@ void TCooker::RollingBaseline(){
     
     double last_real_height;
     double last_base_height;
-    
-    
+        
     // Producing the FFTs for investigation
     //if(fabs(2.5*base_height) > fabs(real_height))
     //{	
@@ -374,23 +431,26 @@ void TCooker::RollingBaseline(){
       //hFFTRealWave = FFTBinSet(hFFTRealWave, hRealWave->GetBinWidth(1));
       float Real_Integral = hFFTRealWave->Integral(0.,1030.);       
       //hFFTRealWave->SetAxisRange(0., 250., "Y");
-      
-      //hFFTRealWave->SetLineColor(1);  
-      //hFFTRealWave->SetLineWidth(2);
-      //hFFTRealWave->Draw();
-
+      */
+      hFFTRealWave->SetLineColor(1);  
+      hFFTRealWave->SetLineWidth(2);
+      hFFTRealWave->Draw();
+/*
       //hBaseWave->FFT(hFFTBaseWave, "MAG");
       //hFFTBaseWave = FFTBinSet(hFFTBaseWave, hBaseWave->GetBinWidth(1));
       float Base_Integral = hFFTBaseWave->Integral(0., 1030.);
       //hFFTBaseWave->SetLineColor(2);
       //hFFTBaseWave->SetLineWidth(2);
       //hFFTBaseWave->Draw("SAME"); 
+*/
+      canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
+  
 
-      //canvas->Print(("./Plots/Studies/" + std::to_string(iEntry) + ".png").c_str()); 
-      */
+      //Filling the 2D histograms for studying 
       BaseComp->Fill(Real_Integral, Base_Integral);
       AvevPeak->Fill(Real_Integral/(GetNSamples()*bin_width) , peakvolt);
       PeakvInt->Fill(Real_Integral, peakvolt);
+      
       /*
       hRealWave->SetAxisRange(-10.,100.,"Y");
 
